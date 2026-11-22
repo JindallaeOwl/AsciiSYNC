@@ -1,0 +1,663 @@
+/* TUI / 모노스페이스 브루탈리즘 — 둥근 모서리·그라데이션·그림자 없음 */
+:root {
+  --bg: #080a0f;
+  --arena: #050507;
+  --ink: #33ff66;
+  --amber: #ffb000;
+  --crimson: #ff2a55;
+  --dim: #4a5568;
+  --line: #1b2430;
+  --line-soft: #141a22;
+  --panel: #0a0d13;
+  --sel: rgba(255, 80, 80, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+}
+
+::selection { background: var(--ink); color: #05070b; }
+
+.screen {
+  display: grid;
+  height: 100vh;
+  height: 100dvh;
+  grid-template-rows: minmax(0, 1fr) 28px clamp(176px, 26vh, 300px);
+}
+
+/* ---------- 상단 경기장 ---------- */
+.arena {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--arena);
+}
+
+#arena { display: block; width: 100%; height: 100%; }
+
+/* ---------- 중앙 상태 바 ---------- */
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 28px;
+  padding: 0 10px;
+  background: #121215;
+  border-top: 1px solid #1b1b20;
+  border-bottom: 1px solid #1b1b20;
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sb-left { color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.sb-right { color: var(--dim); flex: none; }
+.sb-right.run { color: var(--amber); }
+.sb-right.warn { color: var(--crimson); }
+
+.sb-mid {
+  flex: none;
+  margin-left: auto;
+  padding: 0 8px;
+  color: var(--dim);
+  border-left: 1px solid #1b1b20;
+  border-right: 1px solid #1b1b20;
+  user-select: none;
+}
+.sb-mid .fps-opt { cursor: pointer; padding: 0 2px; color: #6b7688; }
+.sb-mid .fps-opt:hover { background: var(--ink); color: #05070b; }
+.sb-mid .fps-opt.on { background: var(--ink); color: #05070b; }
+
+/* ---------- 하단 콘솔 ---------- */
+.console {
+  display: grid;
+  grid-template-columns: 55fr 45fr;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.editor, .telemetry {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.editor { border-right: 1px solid var(--line); }
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-soft);
+  flex: none;
+}
+.pane-head .tag { color: var(--amber); }
+.pane-head .hint { color: #2f3947; margin-left: auto; }
+.pane-head::after {
+  content: '';
+  order: 1;
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+  margin-left: 4px;
+}
+.pane-head .hint { order: 2; margin-left: 6px; }
+
+/* 설정 패널 한/영 토글 */
+.pane-head .lang {
+  order: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 10px;
+  letter-spacing: 0.06em;
+}
+.pane-head .lang-sep { color: #2f3947; }
+.pane-head .lang-opt {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0 3px;
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: #6b7688;
+  cursor: pointer;
+}
+.pane-head .lang-opt:hover { background: var(--amber); color: #05070b; }
+.pane-head .lang-opt.on { background: var(--ink); color: #05070b; }
+.pane-head .lang-opt:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
+
+/* ---------- 코드 에디터 ---------- */
+.code {
+  list-style: none;
+  margin: 0;
+  padding: 5px 0 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  font-size: 11.5px;
+  line-height: 1.72;
+  white-space: nowrap;
+  scrollbar-width: thin;
+  scrollbar-color: #263340 transparent;
+}
+
+.code .line {
+  display: flex;
+  gap: 9px;
+  padding: 0 10px 0 6px;
+}
+
+.code .line:hover,
+.code .line:focus-within { background: var(--sel); }
+
+/* 설정 토큰 더블클릭 → 텍스트 선택 방지(버튼 동작만) */
+.code,
+.code .line,
+.code span {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ln {
+  flex: none;
+  width: 18px;
+  text-align: right;
+  color: #2b3543;
+  user-select: none;
+}
+
+.cm { color: #3f4a5a; }
+.kw { color: #b9a7ff; }
+.vr { color: #7fb8ff; }
+.num { color: #e09f5a; }
+.str { color: #8ee6c0; }
+
+.tk {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.tk:hover, .tk:focus-visible {
+  background: var(--ink);
+  color: #05070b;
+  outline: none;
+}
+.tk.sel { background: var(--amber); color: #05070b; }
+.tk.off { color: #55606f; }
+.tk.warn { color: var(--crimson); }
+.tk[disabled] { color: #2b3543; cursor: default; background: none; }
+
+/* ---------- 텔레메트리 & 로그 ---------- */
+.units {
+  flex: none;
+  max-height: 42%;
+  overflow: auto;
+  padding: 4px 9px 5px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+.unit { display: flex; gap: 8px; align-items: baseline; }
+.unit .uid { flex: none; width: 84px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.unit .bar { letter-spacing: -0.06em; color: var(--ink); }
+.unit .hp { flex: none; width: 58px; text-align: right; color: var(--dim); }
+.unit.dead .uid, .unit.dead .bar { color: #2b3543; }
+
+.logwrap { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: #263340 transparent; }
+
+.log {
+  list-style: none;
+  margin: 0;
+  padding: 3px 9px 8px;
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.log li { white-space: pre-wrap; color: #9fb3c8; }
+.log .ts { color: #39434f; }
+.log li.hit { color: #d8e6f5; }
+.log li.warn { color: var(--crimson); }
+.log li.sys { color: var(--amber); }
+
+/* ---------- CRT 주사선 ---------- */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.035) 0px,
+    rgba(255, 255, 255, 0.035) 1px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0) 3px
+  );
+  /* mix-blend-mode: screen은 60fps 캔버스 위에서 합성을 매 프레임 다시 하면서
+     화면 전체가 미세하게 일렁이는 원인이 된다. 알파 0.035짜리 흰 줄은 일반 합성과
+     밝기가 거의 같으므로 블렌드 모드를 두지 않는다. */
+}
+
+/* ---------- 타이틀 화면 (ASCII SYNC) ---------- */
+.titlelayer {
+  position: fixed;
+  inset: 0;
+  z-index: 40; /* 전역 CRT 주사선(z 50) 아래에 깔려 스캔라인을 함께 받는다 */
+  background: #04060a;
+  overflow: hidden;
+}
+.titlelayer[hidden] { display: none; }
+#titleCanvas { display: block; width: 100%; height: 100%; }
+
+/* ---------- 아스키 커서 ---------- */
+html.ascii-cursor,
+html.ascii-cursor * { cursor: none !important; }
+
+#asciiCursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+}
+
+/* 창 밖으로 나갈 때만 커서·먼지 레이어를 짧게 흐려지게 한다(들어올 때는 즉시 표시) */
+#asciiCursor.ac-out,
+#asciiTrail.ac-out {
+  transition: opacity 190ms ease-out;
+}
+
+#asciiCursor .ac-box {
+  display: block;
+  /* 십자 중심(가운데 행·열)이 격자 한가운데이므로 -50%,-50%로 포인터 좌표에 정확히 맞춘다 */
+  transform: translate(-50%, -50%);
+}
+
+#asciiCursor .ac-r {
+  display: flex;
+  align-items: flex-start;
+}
+
+#asciiCursor .ac-c {
+  display: block;
+  width: 6px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: 0;
+  text-align: center;
+  color: #ffdf70;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+
+#asciiTrail {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 59;
+  pointer-events: none;
+}
+
+#asciiTrail .ac-dust {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 9px;
+  line-height: 1;
+  color: #8ea3b8;
+  opacity: 0;
+  will-change: transform;
+}
+
+/* ---------- Swarm 커서 튜토리얼 연출 ---------- */
+#swarmLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 58; /* 게임 위 · 아스키 커서(60) 아래 */
+  pointer-events: none;
+}
+
+#swarmLayer .sw-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  will-change: transform;
+}
+
+/* 화살표 뾰족한 끝(1.8,1.4)이 커서 좌표와 정확히 겹치게 살짝 당긴다 */
+#swarmLayer .sw-arrow {
+  position: absolute;
+  left: -1.8px;
+  top: -1.4px;
+  display: block;
+}
+
+#swarmLayer .sw-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* 위치(left·top)는 JS가 정수 픽셀로 계산해 넣는다. 커서는 transform으로
+     소수점 단위 이동을 하므로, 말풍선을 커서 요소 안에 두면 11px 글자가
+     매 프레임 반픽셀 위치에서 다시 그려져 깜빡이는 것처럼 보인다.
+     폭을 지정하지 않으면 shrink-to-fit이 한 글자 폭으로 줄어 세로로만
+     읽히는 기둥 모양이 되므로 폭은 명시한다. */
+  width: max-content;
+  max-width: min(264px, calc(100vw - 70px));
+  min-width: 40px;
+  padding: 5px 8px;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  border: 1px solid var(--sw-bc, currentColor);
+  border-radius: 3px;
+  background: #0a0d13;
+  color: #d8e6f5;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 140ms ease-out;
+}
+#swarmLayer .sw-bubble.on { opacity: 1; visibility: visible; }
+/* 좌우 반전·아래쪽 배치 위치는 JS(placeBubble)가 계산해 넣으므로 별도 규칙이 없다. */
+
+/* 속삭임 말풍선: 반투명 + 테두리 점선이 개미 행렬(marching ants)처럼 천천히 흐른다.
+   투명도·위치가 일렁이던 이전 연출은 11px 글자가 계속 다시 그려져 읽기 불편해 없앴다.
+   테두리 자체는 투명하게 비위 두고, 같은 1px 띄 위에 ::after로 네 방향 점선을 그린 뒤
+   배경 위치를 일정 속도로 밀어 끝에서 끊기지 않게 흐르게 한다(점선 씩은 --sw-bc 변수). */
+#swarmLayer .sw-bubble.whisper {
+  /* 실선 테두리는 완전히 비워 두고 점선만 남긴다. 색은 JS가 넘긴 --sw-bc를 쓴다.
+     꼭짓점은 속삭임 말풍선만 8px로 더 둥글게 깎는다. 다른 말풍선과 TUI 패널은
+     각진 3px 모서리를 그대로 유지한다. */
+  border-color: transparent;
+  border-radius: 8px;
+  background: rgba(10, 13, 19, 0.82);
+  color: #dcebfa;
+}
+
+/* 점선을 네 변 직선 그라데이션으로 칠하면 꼭짓점 곡선 자리가 비어 버린다.
+   그래서 말풍선과 같은 사각형 위에 SVG 둥근 사각형의 stroke를 겹쳐 얹고,
+   stroke-dashoffset을 굴려 둥근 모서리를 따라 도는 개미 행렬을 만든다.
+   점선 한 칸 = 선 4px + 틈 6px(주기 10px), 0.8초에 한 칸.
+   요소·위치·크기는 JS(placeDash)가 말풍선과 같은 정수 픽셀 값으로 맞춘다. */
+#swarmLayer .sw-dash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+}
+#swarmLayer .sw-dash.on { opacity: 1; }
+
+#swarmLayer .sw-dash rect {
+  fill: none;
+  stroke: var(--sw-bc, currentColor);
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+  animation: sw-dash-move 800ms linear infinite;
+}
+
+@keyframes sw-dash-move {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -10; }
+}
+
+/* 속삭임 말풍선: 흔들림(투명도 파동 + 상하 이동)은 없앴다. 11px 글자가 매 프레임
+   반픽셀에서 다시 그려져 읽기 불편했기 때문이다. 움직임은 위 ::after의
+   marching ants(점선이 천천히 흐르는) 테두리 하나만 남긴다. */
+
+/* 닫을 때는 그 자리에서 옅어지게 한다. .on을 곧바로 떼면 visibility까지 즉시
+   꺼져 툭 사라지므로, .out으로 투명도만 0까지 내리고 정리는 JS가 잠시 뒤에 한다. */
+#swarmLayer .sw-bubble.out {
+  animation: none;
+  transition: opacity 380ms ease-out;
+}
+#swarmLayer .sw-bubble.out.on { opacity: 0; }
+
+/* 속삭임 말풍선은 닫힐 때 글자가 거품 아스키로 풀려 날아간다.
+   말풍선 자체는 더 빠르게 옅어야 글자와 거품이 겹쳐 보이지 않는다. */
+#swarmLayer .sw-bubble.whisper.out {
+  animation: none;
+  transition: opacity 180ms ease-out;
+}
+/* 옅어지는 동안 점선이 흐르면 잔상처럼 보이므로 닫힘 중에는 멈춘다. */
+#swarmLayer .sw-dash:not(.on) rect { animation: none; }
+
+/* 속삭임 말풍선이 닫힐 때 점선 테두리가 미세한 가루로 풀려 바깥으로 날아간다.
+   기호 글자 없이 1~3px 입자만 쓴다(사용자가 요청한 대로 억지 문자를 쓰지 않는다).
+   비눗방울처럼 위로 떠오르며 좌우로 흔들리다 부풀어 터지듯 사라진다. */
+#swarmLayer .sw-dust {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+#swarmLayer .sw-dust i {
+  border-radius: 50%;
+  position: absolute;
+  display: block;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  line-height: 1;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-name: sw-dust-fly; /* 1~3px 가루 입자 */
+  animation-timing-function: cubic-bezier(0.22, 0.85, 0.3, 1);
+  animation-fill-mode: forwards;
+}
+
+/* --dx/--dy 날아가는 방향 · --o 시작 밝기 · --sc 마지막 크기 배율.
+   바깥 법선 방향으로 날아가며 위로 살짝 떠오르고, 속도는 천천히 줄어 가라앉는다. */
+@keyframes sw-dust-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  12% {
+    opacity: var(--o);
+    transform: translate(calc(var(--dx) * 0.08), calc(var(--dy) * 0.06)) scale(1);
+  }
+  60% {
+    opacity: calc(var(--o) * 0.75);
+    transform: translate(calc(var(--dx) * 0.62), calc(var(--dy) * 0.58)) scale(calc(var(--sc) * 0.85));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(var(--sc));
+  }
+}
+
+
+/* 피그마풍 선택 영역: 테두리 + 모서리 핸들 + 크기 라벨 */
+#swarmLayer .sw-box {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* 테두리·핸들·라벨은 그 커서의 색(currentColor)을 따라간다 */
+  border: 1px solid currentColor;
+  opacity: 0;
+  /* 사라질 때는 천천히 옅어지고, 나타날 때는 짧게 올라온다 */
+  transition: opacity 300ms ease-out;
+}
+#swarmLayer .sw-box.on { opacity: 1; transition-duration: 150ms; }
+#swarmLayer .sw-box.dragging { border-style: dashed; }
+
+/* 새 선택 영역이 나타날 때 이전 선택 영역 자리에 잠깐 남는 복사본.
+   원본 상자를 그대로 되살리면 이전 상자가 새 위치로 순간이동해 다시 진해지므로,
+   제자리에 남는 이 복사본만 옅어지게 한다. */
+#swarmLayer .sw-ghost { transition: opacity 300ms ease-out; }
+
+#swarmLayer .sw-box .sw-h {
+  position: absolute;
+  display: block;
+  width: 6px;
+  height: 6px;
+  background: #05070b;
+  border: 1px solid currentColor;
+}
+#swarmLayer .sw-h0 { left: -4px; top: -4px; }
+#swarmLayer .sw-h1 { right: -4px; top: -4px; }
+#swarmLayer .sw-h2 { left: -4px; bottom: -4px; }
+#swarmLayer .sw-h3 { right: -4px; bottom: -4px; }
+
+#swarmLayer .sw-box .sw-size {
+  position: absolute;
+  left: 0;
+  bottom: -16px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: currentColor;
+  color: #05070b;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* 선택 상자가 스크롤 패널 경계에 닿았을 때: 크기 라벨은 아래 여백이 모자라면
+   상자 위쪽(lab-up)이나 안쪽(lab-in)으로 옮겨 가고, 경계에 닿은 쪽 모서리 핸들은
+   감춰 패널 밖(머리 줄·경기장)으로 삐져나오지 않게 한다. */
+#swarmLayer .sw-box.lab-up .sw-size { bottom: auto; top: -16px; }
+#swarmLayer .sw-box.lab-in .sw-size { bottom: 1px; }
+#swarmLayer .sw-box.edge-t .sw-h0,
+#swarmLayer .sw-box.edge-t .sw-h1 { display: none; }
+#swarmLayer .sw-box.edge-b .sw-h2,
+#swarmLayer .sw-box.edge-b .sw-h3 { display: none; }
+#swarmLayer .sw-box.edge-l .sw-h0,
+#swarmLayer .sw-box.edge-l .sw-h2 { display: none; }
+#swarmLayer .sw-box.edge-r .sw-h1,
+#swarmLayer .sw-box.edge-r .sw-h3 { display: none; }
+
+/* 정렬 가이드 점선 */
+#swarmLayer .sw-guides {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+#swarmLayer .sw-guides.on { opacity: 1; }
+#swarmLayer .sw-guides i { position: absolute; display: block; }
+#swarmLayer .sw-guides .v { top: 0; bottom: 0; width: 0; border-left: 1px dashed #ff2a55; }
+#swarmLayer .sw-guides .h { left: 0; right: 0; height: 0; border-top: 1px dashed #ff2a55; }
+
+/* 영역을 끄는 동안에는 모서리 핸들을 숨긴다(놓은 뒤에 핸들이 붙는다) */
+#swarmLayer .sw-box.dragging .sw-h { display: none; }
+
+/* 스크롤 바 드래그 시연용 썸 — 실제 컨테이너 scrollTop과 함께 움직인다 */
+#swarmLayer .sw-thumb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 6px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+  will-change: transform;
+}
+#swarmLayer .sw-thumb.on { opacity: 0.9; }
+
+/* 클릭 파동 */
+#swarmLayer .sw-ring {
+  position: absolute;
+  display: block;
+  width: 26px;
+  height: 26px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  will-change: transform, opacity;
+  animation: sw-ring 600ms ease-out forwards;
+}
+
+@keyframes sw-ring {
+  0% { transform: translate(-50%, -50%) scale(0.25); opacity: 0.95; }
+  100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+}
+
+/* 경기장 선택 완료 강조 — 선택이 끝난 자리가 흰색으로 짧게 점멸한다.
+   예전의 '띠용' 눌림(scale) 대신 쓰는 연출이라 날카롭지 않게 한 번 은은히
+   밝아졌다가 긴 페이드로 사라진다. 커서·선택 상자보다 아래층에 그린다. */
+#swarmLayer .sw-flash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  background: #ffffff;
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+  animation: sw-flash 420ms ease-out forwards;
+}
+
+@keyframes sw-flash {
+  0% { opacity: 0; }
+  14% { opacity: 0.40; }
+  100% { opacity: 0; }
+}
+
+/* 클릭 대상 미세 스케일 바운스 */
+.sw-bounce { animation: sw-bounce 320ms ease-out; }
+
+@keyframes sw-bounce {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.986); }
+  65% { transform: scale(1.007); }
+  100% { transform: scale(1); }
+}
+
+/* 움직임을 줄이도록 설정한 사용자에게는 점선을 흐르게 하지 않는다(점선 모양은 유지). */
+@media (prefers-reduced-motion: reduce) {
+  #swarmLayer .sw-dash rect { animation: none; }
+}
+
+@media (max-height: 520px) {
+  .screen { grid-template-rows: minmax(0, 1fr) 24px clamp(140px, 30vh, 200px); }
+  .code { font-size: 10.5px; line-height: 1.55; }
+  .units { max-height: 30%; }
+}
+
+@media (max-width: 720px) {
+  .console { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .editor { border-right: 0; border-bottom: 1px solid var(--line); }
+}
