@@ -347,9 +347,7 @@ WBF.Ascii = (function () {
     scale: 0.55,   /* 셀 피치 대비 파동 격자 피치 */
     thr: 0.2,      /* 이 밀도보다 낮은 칸은 그리지 않는다(등고선 느낌) */
     cells: 10000,  /* 여백 격자 전체 셀 수 상한 — 넘으면 격자 피치를 키운다 */
-    cellsLite: 3500, /* 저사양 모드의 셀 수 상한 */
     stepMs: 1000 / 30, /* 파동장을 다시 그리는 간격 — 그 사이는 완성된 레이어를 복사만 한다 */
-    liteMs: 1000 / 15, /* 저사양 모드의 재그리기 간격 */
     warp: 0.8,     /* 웨이브 워프 진폭(격자 칸 단위) — 살짝 요동치는 정도 */
     warpSpeed: 0.2, /* 워프 위상이 흐르는 속도(라디안/초) — 느린 잔물결 */
     rSpeed: 190,   /* 클릭 리플 파면 속도(px/s) — 천천히, 짧게 퍼진다 */
@@ -451,7 +449,7 @@ WBF.Ascii = (function () {
     for (var tries = 0; tries < 16; tries++) {
       cols = Math.ceil(cssW / cw);
       rows = Math.ceil(cssH / chh);
-      if (cols * rows <= (this.lite ? d.cellsLite : d.cells)) break;
+      if (cols * rows <= d.cells) break;
       cw *= 1.15;
       chh *= 1.15;
     }
@@ -511,12 +509,11 @@ WBF.Ascii = (function () {
     this.wvDirty = true;
   };
 
-  /* 저사양 모드: 파동장 격자를 성기게, 재그리기 간격을 길게. 배경·경기 화면은 그대로다. */
+  /* 저사양 모드: 여백 파동장을 아예 그리지 않는다. 배경·경기 화면은 그대로다.
+     다시 켜면 다음 프레임에 레이어를 새로 그린다. */
   Renderer.prototype.setLite = function (on) {
-    on = !!on;
-    if (this.lite === on) return;
-    this.lite = on;
-    if (this.cssW) this.buildWaveField();
+    this.lite = !!on;
+    this.wvDirty = true;
   };
 
   /* 클릭 지점에서 퍼지는 리플을 예약한다(최대 rMax개, 오래된 것부터 버린다) */
@@ -612,18 +609,18 @@ WBF.Ascii = (function () {
     this.wvRampN = rampN;
   };
 
-  /* 파동장은 오프스크린 레이어에 고정 간격(WAVE.stepMs, 저사양은 WAVE.liteMs)으로만 다시 그리고,
+  /* 파동장은 오프스크린 레이어에 고정 간격(WAVE.stepMs)으로만 다시 그리고,
      매 프레임은 완성된 레이어를 한 번 복사한다(셀 수천 개 drawImage → 복사 1회).
      화면 흔들림은 복사할 때의 변환으로 그대로 받는다. */
   Renderer.prototype.drawWaves = function (ctx, now) {
     if (!this.wvN || !this.wvAtlas) return;
-    if (this.wvCols < 2 || this.wvRows < 2) return;
+    if (this.lite || this.wvCols < 2 || this.wvRows < 2) return;
     var cssW = this.cssW;
     var cssH = this.cssH;
     if (this.ox < 1 && cssW - (this.ox + this.drawW) < 1 &&
       this.oy < 1 && cssH - (this.oy + this.drawH) < 1) return;
 
-    var iv = this.lite ? WAVE.liteMs : WAVE.stepMs;
+    var iv = WAVE.stepMs;
     if (!this.wvLayer || this.wvDirty) {
       this.wvAt = now;
       this.paintWaves(now);
