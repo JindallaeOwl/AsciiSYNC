@@ -696,8 +696,8 @@
     txt.textContent = fmtTime(game.time) + ' ' + text;
     var color = C.com;
     if (kind === 'warn') color = C.warn;
-    else if (kind === 'hit') color = C.amber;
-    else if (kind === 'sys') color = C.ok;
+    else if (kind === 'hit') color = C.num;
+    else if (kind === 'sys') color = C.id;
     txt.style.color = color;
     txt.style.flex = '1';
     txt.style.minWidth = '0';
