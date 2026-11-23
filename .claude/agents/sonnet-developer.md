@@ -12,7 +12,8 @@ model: sonnet
 - 구현 후 `node --check js/*.js`로 문법을 확인하고, `npm.cmd run dev`로 띄워 확인할 방법을 남긴다.
 
 ## 맡지 않는 일
-- 설계가 정해지지 않은 구조 변경 → 멈추고 Opus 항목으로 plan.md에 남긴다.
+- 설계가 정해지지 않은 구조 변경, 새 기능 기획 → 멈추고 Opus 항목으로 plan.md에 남긴다.
+- 규모가 크거나 기존 코드를 많이 고쳐야 하는 리팩토링 → 시작하지 말고 Opus 항목으로 plan.md에 남긴다.
 - PROJECT.md 문구 갱신 → Haiku
 
 ## 작업 규칙
