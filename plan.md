@@ -11,19 +11,16 @@
     - **Sonnet:** 한 파일 안의 분명한 수정·버그 수정, Opus가 단계까지 정해 둔 작업 적용
     - **Haiku:** 질문·코드 위치 찾기, 문법 검사, 문구·수치 한 줄 수정, 밀린 문서 반영
     - 문서 반영은 변경한 세션이 직접 한다. 이미 밀려 있는 문서 항목만 Haiku가 처리한다.
-- **수정된 파일 목록:** 원본과 비교할 git 기록이 없다(`master` 브랜치에 커밋 0개). 따라서 원본 대비 무엇이 바뀌었는지는 판별할 수 없다.
+- **수정된 파일 목록:** 기준 저장소는 git `main` 브랜치에 커밋이 있다. 변경 이력은 `git log`로 보고, 아직 커밋하지 않은 변경은 `git status`로 본다.
   - 아래 세 사본은 이 폴더와 **내용이 같다**: `d:\Owl` 루트의 `PROJECT.md`·`index.html`·`js/`·`css/`·`docs/`, `d:\Owl\AsciiSYNC-main`(빈 `README.md` 1개만 더 있음), `d:\Owl\Ascii_SYNC.zip`.
   - 파동장 최적화(2026-11-24): `js/ascii.js`(파동장 오프스크린 레이어 + 30Hz 재그리기, 클립 제거, `setLite`(저사양이면 파동장 생략)·`WAVE.stepMs`), `js/script.js`(저사양 모드: L 키·`?lite=1`·자동 감지). 헤드리스 측정에서 경기 중 약 10fps → 60fps.
   - 타이틀 배경 최적화(2026-11-24): `js/title.js` `drawBackground`가 30Hz마다 셀 전체를 다시 찍던 것을, 단계가 바뀐 칸만 지우고 다시 찍도록 변경(붕괴 중·크기 변경 직후는 전체). 화면 결과는 같고 1920×1080에서 프레임당 약 30ms → 3ms.
   - 파동장 레이어 복사(2026-11-24): `js/ascii.js` `blitWaves` — 평소엔 여백 네 곳만 1:1 픽셀로 복사, 화면 흔들림 중엔 예전처럼 전체 복사. 전체 복사와 픽셀 비교 시 6개 환경 중 5개 완전 일치(분수 DPR×분수 크기인 1537×911@1.25에서만 약 0.02% 픽셀이 최대 27 차이, 기존 쪽이 1px 미만 재표본된 경우).
-  - 이후 추가한 파일: `plan.md`, `package.json`, `dev-server.js`(`npm.cmd run dev`), `.gitignore`, `.claude/agents/`(세션 역할 3개). `PROJECT.md`는 수정하지 않았다.
-  - 기준 저장소는 `D:\Owl\Ascii_SYNC`이고 GitHub `JindallaeOwl/AsciiSYNC`의 `main`과 연결돼 있다. 상위 폴더의 다른 사본은 쓰지 않는다.
+  - 타이틀 배경 지우기 픽셀 정렬(2026-11-24): `js/title.js` 증분 지우기 사각형을 dpr 격자에 맞춤(소수 배율에서 이웃 글자 가장자리 깎임 방지). 저사양 주석 정리(`js/script.js`), PROJECT.md 동기화.
+  - 이후 추가한 파일: `plan.md`, `package.json`, `dev-server.js`(`npm.cmd run dev`), `.gitignore`, `.claude/agents/`(세션 역할 3개).  - 기준 저장소는 `D:\Owl\Ascii_SYNC`이고 GitHub `JindallaeOwl/AsciiSYNC`의 `main`과 연결돼 있다. 상위 폴더의 다른 사본은 쓰지 않는다.
 - **다음 할 일:**
   1. `Sonnet:` 가루 효과 모션 최소화 대응 — `css/style.css` (「진행 중인 설계」 1번)
-  2. `Haiku:` PROJECT.md 「실행 방법」에 `npm.cmd run dev` 실행법 반영
-  2-1. `Haiku:` PROJECT.md 반영 — 「여백 파동 배경」에 오프스크린 레이어·30Hz 재그리기(클립 대신 경기장 영역 지우기)와 저사양 모드(L 키, `?lite=1`, 프레임이 목표의 65% 아래로 약 3초 이어지면 자동 ON, 저사양 모드에서는 파동장을 아예 그리지 않음) 추가. 셀 수 상한 문구가 7,000으로 적혀 있으나 코드는 10,000이다.
-  2-3. `Haiku:` PROJECT.md 반영 — 「성능 규칙」 타이틀 배경 항목에 증분 그리기(`bgPrev`, 바뀐 칸만) 추가. 또 배경 셀 수는 글리프 px를 `round`로 고르므로 1920×1080에서 약 10,800개로 ‘약 7,000’ 상한을 넘는다(문서 문구 점검).
-  2-2. `Opus:` 리뷰 — js/ascii.js `drawWaves`/`paintWaves`. 남은 큰 비용인 본체 셀 `drawImage`(`flush`)를 더 줄일 구조(변한 칸만 그리기 등)도 검토
+  2. `Opus:` 리뷰 — js/ascii.js `drawWaves`/`paintWaves`. 남은 큰 비용인 본체 셀 `drawImage`(`flush`)를 더 줄일 구조(변한 칸만 그리기 등)도 검토
   3. `Opus:` 가루 효과 재사용 구조를 어떻게 공개할지 결정 — `js/swarm.js` (「진행 중인 설계」 2번)
   4. `사용자:` `npm.cmd run dev`로 전체 흐름(타이틀 → 튜토리얼 → 쇼케이스 → 모드 전환)과 프레임 확인 (「진행 중인 설계」 3번)
 

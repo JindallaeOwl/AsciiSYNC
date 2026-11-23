@@ -495,6 +495,18 @@ WBF.Title = (function () {
     smY += (ptrY - smY) * 0.16;
   }
 
+  /* 증분 지우기: 칸의 네 변을 장치 픽셀 격자로 내림해 맞춘다. dpr이 소수(1.25 등)면
+     칸 경계가 장치 픽셀 중간에 걸려 안티에일리어싱으로 이웃 글자의 첫 열이 반쯤 지워진다.
+     오른쪽·아래 변 내림은 비어 있는 여백 열·행 안에서만 줄어들고, 왼쪽·위 변 내림은
+     앞 칸의 빈 여백만 침범한다. */
+  function clearCell(g, c, r) {
+    var x0 = Math.floor(c * cellW * dpr) / dpr;
+    var x1 = Math.floor((c + 1) * cellW * dpr) / dpr;
+    var y0 = Math.floor(r * cellH * dpr) / dpr;
+    var y1 = Math.floor((r + 1) * cellH * dpr) / dpr;
+    g.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+
   /* 배경 필드는 오프스크린(bgCtx)에 그리되 파문은 넣지 않는다.
      필드 자체는 매우 느리게 움직여 30Hz로 충분하고, 빠르게 반응해야 하는
      파문만 drawRippleOverlay가 매 프레임 덧그린다. */
@@ -563,7 +575,7 @@ WBF.Title = (function () {
         if (v < 0.19) {
           baseIdx[qi] = 0;
           if (pv[qi]) {
-            if (!full) g.fillRect(c * cellW, r * cellH, cellW, cellH);
+            if (!full) clearCell(g, c, r);
             pv[qi] = 0;
           }
           continue;
@@ -590,7 +602,7 @@ WBF.Title = (function () {
 
         if (!full) {
           if (pv[qi] === idx + 1) continue;   /* 단계가 같으면 캐시에 이미 그려져 있다 */
-          g.fillRect(c * cellW, r * cellH, cellW, cellH);
+          clearCell(g, c, r);
         }
         pv[qi] = idx + 1;
         g.drawImage(
