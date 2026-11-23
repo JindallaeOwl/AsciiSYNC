@@ -629,7 +629,35 @@ WBF.Ascii = (function () {
       if (now - this.wvAt >= iv) this.wvAt = now; /* 밀렸으면 따라잡지 않고 현재로 맞춘다 */
       this.paintWaves(now);
     }
-    ctx.drawImage(this.wvLayer, 0, 0, cssW, cssH);
+    this.blitWaves(ctx);
+  };
+
+  /* 레이어는 여백에만 내용이 있고 경기장 안쪽은 비어 있으므로 평소에는 여백 네 곳만 복사한다.
+     화면과 같은 픽셀 격자에서 1:1로, 서로 겹치지 않게 나누고 경기장 경계에 걸친 픽셀은 여백 쪽에
+     포함시킨다. 화면 흔들림처럼 소수 픽셀 이동이 있을 때는 조각 가장자리가 어긋나 보일 수 있어
+     예전처럼 전체를 한 번에 복사한다(흔들림은 0.1~0.3초뿐). */
+  Renderer.prototype.blitWaves = function (ctx) {
+    var cv = this.wvLayer;
+    var lw = cv.width;
+    var lh = cv.height;
+    if ((this.game.shakeX || 0) !== 0 || (this.game.shakeY || 0) !== 0 ||
+      lw !== this.canvas.width || lh !== this.canvas.height) {
+      ctx.drawImage(cv, 0, 0, this.cssW, this.cssH);
+      return;
+    }
+    var d = this.dpr;
+    var x0 = Math.min(lw, Math.max(0, Math.ceil(this.ox * d)));
+    var x1 = Math.max(x0, Math.min(lw, Math.floor((this.ox + this.drawW) * d)));
+    var y0 = Math.min(lh, Math.max(0, Math.ceil(this.oy * d)));
+    var y1 = Math.max(y0, Math.min(lh, Math.floor((this.oy + this.drawH) * d)));
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (x0 > 0) ctx.drawImage(cv, 0, 0, x0, lh, 0, 0, x0, lh);
+    if (x1 < lw) ctx.drawImage(cv, x1, 0, lw - x1, lh, x1, 0, lw - x1, lh);
+    if (y0 > 0 && x1 > x0) ctx.drawImage(cv, x0, 0, x1 - x0, y0, x0, 0, x1 - x0, y0);
+    if (y1 < lh && x1 > x0) ctx.drawImage(cv, x0, y1, x1 - x0, lh - y1, x0, y1, x1 - x0, lh - y1);
+    ctx.restore();
   };
 
   /* 경기장 사각형 바깥 네 여백 띠에만 파동장을 찍는다.
