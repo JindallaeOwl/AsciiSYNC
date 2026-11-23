@@ -865,6 +865,10 @@
     }
     var tag = ev.target ? ev.target.tagName : '';
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (ev.key === 'l' || ev.key === 'L') {
+      setLite(!lite, false);
+      return;
+    }
     if (ev.code === 'Space') {
       ev.preventDefault();
       /* 경기가 끝났거나 멈춰 있으면 Enter처럼 다시 시작, 진행 중이면 일시정지 */
@@ -876,6 +880,22 @@
       startMatch();
     }
   });
+
+  /* ---------- 저사양 모드 ----------
+     여백 파동장(셀 수천 개)이 가장 무거워서 격자를 성기게 하고 재그리기 간격을 늘린다.
+     경기장·파이터·타이틀은 그대로다. L 키로 켜고 끄며, ?lite=1 로 시작할 수도 있고,
+     경기 중 프레임이 목표보다 계속 낮으면 한 번 자동으로 켠다(자동으로 끄지는 않는다). */
+  var lite = /[?&]lite=1(&|$)/.test(window.location.search);
+  var slowSamples = 0;
+  var liteAutoDone = false;
+
+  function setLite(on, auto) {
+    lite = !!on;
+    if (auto) liteAutoDone = true;
+    if (game.renderer && game.renderer.setLite) game.renderer.setLite(lite);
+    pushLog('LITE_MODE = ' + (lite ? 'ON' : 'OFF') + (auto ? ' (AUTO: low FPS)' : '') + ' // [L] toggle', 'sys');
+  }
+  if (lite && game.renderer && game.renderer.setLite) game.renderer.setLite(true);
 
   /* ---------- 루프 ---------- */
 
@@ -935,6 +955,13 @@
       fps = Math.round((frames * 1000) / (now - fpsAt));
       frames = 0;
       fpsAt = now;
+      /* 경기 중 프레임이 목표의 65% 아래로 6번(약 3초) 연속이면 저사양 모드를 자동으로 켠다 */
+      if (!lite && !liteAutoDone && !titleCover && game.running && !game.paused && !document.hidden &&
+        fps < fpsMode * 0.65) {
+        if (++slowSamples >= 6) setLite(true, true);
+      } else {
+        slowSamples = 0;
+      }
     }
   }
 

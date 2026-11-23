@@ -347,6 +347,9 @@ WBF.Ascii = (function () {
     scale: 0.55,   /* 셀 피치 대비 파동 격자 피치 */
     thr: 0.2,      /* 이 밀도보다 낮은 칸은 그리지 않는다(등고선 느낌) */
     cells: 10000,  /* 여백 격자 전체 셀 수 상한 — 넘으면 격자 피치를 키운다 */
+    cellsLite: 3500, /* 저사양 모드의 셀 수 상한 */
+    stepMs: 1000 / 30, /* 파동장을 다시 그리는 간격 — 그 사이는 완성된 레이어를 복사만 한다 */
+    liteMs: 1000 / 15, /* 저사양 모드의 재그리기 간격 */
     warp: 0.8,     /* 웨이브 워프 진폭(격자 칸 단위) — 살짝 요동치는 정도 */
     warpSpeed: 0.2, /* 워프 위상이 흐르는 속도(라디안/초) — 느린 잔물결 */
     rSpeed: 190,   /* 클릭 리플 파면 속도(px/s) — 천천히, 짧게 퍼진다 */
@@ -448,7 +451,7 @@ WBF.Ascii = (function () {
     for (var tries = 0; tries < 16; tries++) {
       cols = Math.ceil(cssW / cw);
       rows = Math.ceil(cssH / chh);
-      if (cols * rows <= d.cells) break;
+      if (cols * rows <= (this.lite ? d.cellsLite : d.cells)) break;
       cw *= 1.15;
       chh *= 1.15;
     }
@@ -505,6 +508,15 @@ WBF.Ascii = (function () {
     this.wvDu = new Float32Array(rows);
     this.wvDv = new Float32Array(cols);
     this.buildWaveAtlas(cw, chh);
+    this.wvDirty = true;
+  };
+
+  /* 저사양 모드: 파동장 격자를 성기게, 재그리기 간격을 길게. 배경·경기 화면은 그대로다. */
+  Renderer.prototype.setLite = function (on) {
+    on = !!on;
+    if (this.lite === on) return;
+    this.lite = on;
+    if (this.cssW) this.buildWaveField();
   };
 
   /* 클릭 지점에서 퍼지는 리플을 예약한다(최대 rMax개, 오래된 것부터 버린다) */
@@ -600,33 +612,56 @@ WBF.Ascii = (function () {
     this.wvRampN = rampN;
   };
 
+  /* 파동장은 오프스크린 레이어에 고정 간격(WAVE.stepMs, 저사양은 WAVE.liteMs)으로만 다시 그리고,
+     매 프레임은 완성된 레이어를 한 번 복사한다(셀 수천 개 drawImage → 복사 1회).
+     화면 흔들림은 복사할 때의 변환으로 그대로 받는다. */
+  Renderer.prototype.drawWaves = function (ctx, now) {
+    if (!this.wvN || !this.wvAtlas) return;
+    if (this.wvCols < 2 || this.wvRows < 2) return;
+    var cssW = this.cssW;
+    var cssH = this.cssH;
+    if (this.ox < 1 && cssW - (this.ox + this.drawW) < 1 &&
+      this.oy < 1 && cssH - (this.oy + this.drawH) < 1) return;
+
+    var iv = this.lite ? WAVE.liteMs : WAVE.stepMs;
+    if (!this.wvLayer || this.wvDirty) {
+      this.wvAt = now;
+      this.paintWaves(now);
+    } else if (now - this.wvAt >= iv) {
+      this.wvAt += iv;
+      if (now - this.wvAt >= iv) this.wvAt = now; /* 밀렸으면 따라잡지 않고 현재로 맞춘다 */
+      this.paintWaves(now);
+    }
+    ctx.drawImage(this.wvLayer, 0, 0, cssW, cssH);
+  };
+
   /* 경기장 사각형 바깥 네 여백 띠에만 파동장을 찍는다.
      밀도장을 워프 좌표에서 다시 샘플하므로 등고선 자체가 물결처럼 휘고 흐르고,
      클릭 리플의 부호 있는 파면이 그 위에 더해져 보강·상쇄 간섭이 생긴다. */
-  Renderer.prototype.drawWaves = function (ctx, now) {
-    var n = this.wvN;
+  Renderer.prototype.paintWaves = function (now) {
     var atlas = this.wvAtlas;
-    if (!n || !atlas) return;
     var cols = this.wvCols;
     var rows = this.wvRows;
-    if (cols < 2 || rows < 2) return;
     var cssW = this.cssW;
     var cssH = this.cssH;
     var ox = this.ox;
     var oy = this.oy;
-    var rx = ox + this.drawW;
-    var by = oy + this.drawH;
-    var mr = cssW - rx;
-    var mb = cssH - by;
-    if (ox < 1 && mr < 1 && oy < 1 && mb < 1) return;
 
-    ctx.save();
-    ctx.beginPath();
-    if (ox > 1) ctx.rect(0, 0, ox, cssH);
-    if (mr > 1) ctx.rect(rx, 0, mr, cssH);
-    if (oy > 1) ctx.rect(0, 0, cssW, oy);
-    if (mb > 1) ctx.rect(0, by, cssW, mb);
-    ctx.clip();
+    if (!this.wvLayer) this.wvLayer = document.createElement('canvas');
+    var lw = Math.round(cssW * this.dpr);
+    var lh = Math.round(cssH * this.dpr);
+    if (this.wvLayer.width !== lw || this.wvLayer.height !== lh) {
+      this.wvLayer.width = lw;
+      this.wvLayer.height = lh;
+    }
+    this.wvDirty = false;
+    var ctx = this.wvLayer.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, lw, lh);
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false;
 
     var d = WAVE;
     var rampN = this.wvRampN;
@@ -690,7 +725,8 @@ WBF.Ascii = (function () {
           (c + 0.5) * cw - halfW, yPos, w, h);
       }
     }
-    ctx.restore();
+    /* 클립 대신 경기장 안쪽을 지운다 — 클립을 건 채 셀 수천 개를 찍는 것이 가장 느렸다 */
+    ctx.clearRect(ox, oy, this.drawW, this.drawH);
   };
 
   /* ---------- 셀 버퍼 ---------- */
