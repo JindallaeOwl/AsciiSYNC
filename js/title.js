@@ -175,6 +175,8 @@ WBF.Title = (function () {
   /* 배경 필드의 셀별 밀도·문자 단계(파문 제외). 파문 레이어가 이 값을 매 프레임 다시 조합한다 */
   var baseV = null;
   var baseIdx = null;
+  var bgPrev = null;   /* 배경 캐시에 지금 찍혀 있는 단계+1 (0 = 빈 칸) — 바뀐 칸만 다시 그린다 */
+  var bgFull = true;   /* true면 다음 배경 그리기에서 전체를 다시 그린다 */
   var colA = null;
   var colB = null;
   var colC = null;
@@ -455,6 +457,8 @@ WBF.Title = (function () {
     hash2 = new Float32Array(cols * rows);
     baseV = new Float32Array(cols * rows);
     baseIdx = new Uint8Array(cols * rows);
+    bgPrev = new Uint8Array(cols * rows);
+    bgFull = true;
     for (var i = 0; i < hash.length; i++) {
       hash[i] = Math.random();
       hash2[i] = Math.random();
@@ -501,8 +505,13 @@ WBF.Title = (function () {
     var c;
     var r;
 
+    /* 평상시에는 단계가 바뀐 칸만 지우고 다시 찍는다(결과 화면은 전체 재그리기와 같다).
+       붕괴 중이거나 크기가 바뀐 직후에는 전체를 다시 그린다. */
+    var full = bgFull || disp.p > 0;
+    var pv = bgPrev;
     g.fillStyle = C_BG;
-    g.fillRect(0, 0, cssW, cssH);
+    if (full) g.fillRect(0, 0, cssW, cssH);
+    bgFull = disp.p > 0;
 
     /* 다중 사인파: 열·행별로 sin을 한 번만 구하고, 좌우파 x 세로파의 곱으로 대각 간섭을 만든다 */
     for (c = 0; c < cols; c++) {
@@ -553,6 +562,10 @@ WBF.Title = (function () {
         baseV[qi] = v;
         if (v < 0.19) {
           baseIdx[qi] = 0;
+          if (pv[qi]) {
+            if (!full) g.fillRect(c * cellW, r * cellH, cellW, cellH);
+            pv[qi] = 0;
+          }
           continue;
         }
         var idx = (v * rampN) | 0;
@@ -575,6 +588,11 @@ WBF.Title = (function () {
           }
         }
 
+        if (!full) {
+          if (pv[qi] === idx + 1) continue;   /* 단계가 같으면 캐시에 이미 그려져 있다 */
+          g.fillRect(c * cellW, r * cellH, cellW, cellH);
+        }
+        pv[qi] = idx + 1;
         g.drawImage(
           bgSp[idx],
           Math.round(c * cellW + ox),
