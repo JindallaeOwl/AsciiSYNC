@@ -1,0 +1,9 @@
+{
+  "name": "ascii-sync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ASCII SYNC — ascii battle sim",
+  "scripts": {
+    "dev": "node dev-server.js"
+  }
+}
