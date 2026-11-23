@@ -4,19 +4,18 @@
 
 ## 현재 상태
 - **진행 단계:** PROJECT.md에 적힌 기능이 코드에 모두 들어가 있는 **다듬기·유지보수 단계**다. 타이틀(ASCII SYNC) → 붕괴/커튼 전환 → Swarm 커서 튜토리얼 → 고정 대진 쇼케이스 → 4개 경기 모드·스킬·클리어 연출까지 흐름이 끝까지 구현돼 있다. JS 11개 모두 `node --check` 문법 검사를 통과했고, 코드 안에 `TODO`/`FIXME`/디버그 `console.log`는 없다. 브라우저 실행 확인은 아직 하지 않았다.
-- **작업 중인 세션과 파일:** 이전 세션 기록이 없어(다른 환경에서 zip으로 옮겨 옴, 파일 날짜가 모두 `1980-01-01`) 직전에 어떤 파일을 작업하고 있었는지는 **확인할 수 없다**. PROJECT.md·docs에서 가장 자세하게, 가장 여러 번 고친 흔적이 남은 영역은 속삭임 말풍선 가루 효과와 튜토리얼 스크롤 시연이다. 그래서 마지막 작업 대상은 다음 파일로 **추정**한다.
-  - `js/swarm.js`: `fizzDust`·`edgePoint`·`fadeBubble`, `scrollDrag`·`parkBox`·`scrollClipOf`
-  - `js/tutorial.js`: ⑧ 스크롤 되끌기·`noScroll` 겹침, `STAGE_MOTION`
-  - `css/style.css`: `.sw-dust`·`.sw-dash`·`.sw-bubble.whisper`
-  - `docs/whisper-dust-effect.md`
+- **작업 중인 세션과 파일:** 지금 작업 중인 세션은 없다.
+  - 세션은 Opus(설계·리뷰), Sonnet(구현), Haiku(보조)로 나눈다. 역할은 `.claude/agents/`의 세 파일에 정의돼 있다.
+  - 세션을 시작할 때 이 칸에 `세션: 작업 — 파일`을 한 줄 적고, 끝나면 지운다. 다른 세션이 적어 둔 파일은 건드리지 않는다.
 - **수정된 파일 목록:** 원본과 비교할 git 기록이 없다(`master` 브랜치에 커밋 0개). 따라서 원본 대비 무엇이 바뀌었는지는 판별할 수 없다.
   - 아래 세 사본은 이 폴더와 **내용이 같다**: `d:\Owl` 루트의 `PROJECT.md`·`index.html`·`js/`·`css/`·`docs/`, `d:\Owl\AsciiSYNC-main`(빈 `README.md` 1개만 더 있음), `d:\Owl\Ascii_SYNC.zip`.
-  - 이번 세션에서 새로 만든 파일은 `plan.md` 하나다. `PROJECT.md`는 수정하지 않았다.
+  - 이후 추가한 파일: `plan.md`, `package.json`, `dev-server.js`(`npm.cmd run dev`), `.gitignore`, `.claude/agents/`(세션 역할 3개). `PROJECT.md`는 수정하지 않았다.
+  - 기준 저장소는 `D:\Owl\Ascii_SYNC`이고 GitHub `JindallaeOwl/AsciiSYNC`의 `main`과 연결돼 있다. 상위 폴더의 다른 사본은 쓰지 않는다.
 - **다음 할 일:**
-  1. 지금 상태로 **git 첫 커밋**을 만들어 이후 변경을 추적할 기준점으로 삼는다.
-  2. 사본 중 어느 것을 기준으로 쓸지 정한다. 후보는 `Ascii_SYNC`, `d:\Owl` 루트, `AsciiSYNC-main` 세 곳이다. 하나만 남기거나 나머지는 보관용으로 표시해 두 곳을 번갈아 고치는 일을 막는다.
-  3. 브라우저에서 `index.html`을 열고 전체 흐름이 정상인지 확인한다. 순서는 타이틀 → 튜토리얼 → 쇼케이스 → 모드 전환이다. Matter.js(CDN)와 Google Fonts를 쓰므로 인터넷 연결이 필요하다.
-  4. 아래 「진행 중인 설계」 항목을 처리한다.
+  1. `Sonnet:` 가루 효과 모션 최소화 대응 — `css/style.css` (「진행 중인 설계」 1번)
+  2. `Haiku:` PROJECT.md 「실행 방법」에 `npm.cmd run dev` 실행법 반영
+  3. `Opus:` 가루 효과 재사용 구조를 어떻게 공개할지 결정 — `js/swarm.js` (「진행 중인 설계」 2번)
+  4. `사용자:` `npm.cmd run dev`로 전체 흐름(타이틀 → 튜토리얼 → 쇼케이스 → 모드 전환)과 프레임 확인 (「진행 중인 설계」 3번)
 
 ## 프로젝트 요약
 16:9 경기장에서 4종 무기 파이터(BLADE·RAILGUN·JUGGERNAUT·SPLITTER)가 핀볼식 탄성 반사로 싸우는 것을 지켜보는 물리 기반 관전 시뮬레이션이다(Matter.js, 1/60초 고정 스텝).
