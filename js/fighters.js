@@ -16,6 +16,40 @@ WBF.TYPES = [
   { id: 'splitter',   abbr: 'SPL', tag: 'SPLITTER',   name: '분열술사', color: '#b829ff', hp: 230, radius: 38, cruise: 11.8, skillName: 'FRAG_BURST',   skillColor: '#dda6ff' }
 ];
 
+/* ---------- 셰이딩 아트 원본(시제품: BLADE) ----------
+   손으로 쓴 문자 시트 대신 도형 + 재질 + 두께로 파이터를 정의하고, js/shade.js가 각도별로
+   셀마다 가장 닮은 문자와 크롬 반사 색을 구워 둔다(1셀 1문자 규칙은 그대로).
+   좌표: 참조 셀 6×11px 기준 px, 회전 중심 원점, +x = 정면(칼끝), +y = 아래.
+   parts는 뒤 → 앞 순서(뒤에 있는 부위가 앞 부위를 덮는다).
+   - shape: { circle: [cx, cy, r] } | { poly: [[x,y]...], mirror: true } — mirror면 poly는 y=0 축 위 점에서 시작해 축 위 점으로 끝나는 위쪽 절반 경로이고, 아래 절반은 y를 뒤집어 거꾸로 이어 붙인다
+   - mat: materials 키
+   materials:
+   - env: [하늘, 어두운 띠, 바닥] — '#hex' | 'sig'(시그니처 색) | 'sig+0.6'(흰색 쪽으로) | 'sig-0.7'(검정 쪽으로)
+   - profile: 'bevel'(가장자리에서 W까지 직선 경사 → 날 능선) | 'dome'(둥글게 부푼 면)
+   - W, H: 경사 폭·높이(px). H/W가 클수록 기울기가 커져 반사가 하늘·바닥으로 멀리 간다
+   - stripe: [진폭, 주기px] — x 방향 감김 무늬(손잡이)
+   - rim: [높이, 가장자리에서 거리, 폭] — 테두리 바로 안쪽이 살짝 솟는다
+   - 내부 칸 채움: grain(결 각도, 라디안 — 회전에 맞춰 = \ | / 중 하나) 또는 ramp(어두움→밝음 문자열)
+   어두운 띠도 검은 배경 위에서 구멍처럼 보이지 않게 너무 어둡게 두지 않는다 */
+WBF.ART = {
+  blade: {
+    materials: {
+      steel: { env: ['sig+0.8', 'sig-0.55', 'sig'], profile: 'bevel', W: 11, H: 11, grain: 0 },
+      brass: { env: ['#fff0b8', '#7a5414', '#d6952a'], profile: 'bevel', W: 5, H: 5, grain: Math.PI / 2 },
+      grip:  { env: ['sig-0.2', 'sig-0.65', 'sig-0.45'], profile: 'dome', W: 6, H: 4, stripe: [1.6, 5], ramp: '+*#' },
+      gem:   { env: ['#ffffff', 'sig-0.3', 'sig+0.2'], profile: 'dome', W: 5, H: 6, ramp: 'o@' }
+    },
+    parts: [
+      { shape: { circle: [-64, 0, 11] }, mat: 'brass' },
+      { shape: { circle: [-64, 0, 5.5] }, mat: 'gem' },
+      { shape: { poly: [[-56, -6], [-26, -6], [-26, 6], [-56, 6]] }, mat: 'grip' },
+      { shape: { poly: [[-15, 0], [-15, -11], [48, -11], [78, 0]], mirror: true }, mat: 'steel' },
+      { shape: { poly: [[-29, 0], [-29, -27], [-22, -36], [-14, -27], [-14, 0]], mirror: true }, mat: 'brass' },
+      { shape: { circle: [-21, 0, 4.5] }, mat: 'gem' }
+    ]
+  }
+};
+
 WBF.getType = function (id) {
   for (var i = 0; i < WBF.TYPES.length; i++) {
     if (WBF.TYPES[i].id === id) return WBF.TYPES[i];

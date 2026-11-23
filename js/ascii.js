@@ -13,7 +13,9 @@ window.WBF = window.WBF || {};
 
 WBF.Ascii = (function () {
   var GLYPHS = [' ', '.', ':', '~', '-', '=', '+', '*', 'o', '&', '#', '%', '@',
-    '>', '<', '/', '\\', '|', 'v', '^', '─', '│', '┌', '┐', '└', '┘', '·', '_', 'X'];
+    '>', '<', '/', '\\', '|', 'v', '^', '─', '│', '┌', '┐', '└', '┘', '·', '_', 'X',
+    /* 셰이딩 아트(js/shade.js) 가장자리 모양 맞추기용 — 기존 인덱스를 바꾸지 않게 뒤에 붙인다 */
+    '(', ')', '[', ']', "'", ',', ';', '"'];
   var GIDX = {};
   for (var _g = 0; _g < GLYPHS.length; _g++) GIDX[GLYPHS[_g]] = _g;
 
@@ -127,6 +129,11 @@ WBF.Ascii = (function () {
     this.halfW = 3;
     this.halfH = 5;
 
+    /* 셰이딩 아트: 원본(WBF.ART)이 있는 파이터는 각도별로 구운 시트를 그린다(K 키로 기존 방식과 비교) */
+    this.artShade = !/[?&]art=sheet(&|$)/.test(window.location.search);
+    this.shadeCache = {};
+    this.shadeTab = null;
+
     /* 배경 클릭 리플 — 여백 파동장에 부호 있는 파면을 더한다 */
     var self = this;
     this.ripples = [];
@@ -184,6 +191,9 @@ WBF.Ascii = (function () {
     for (var r = 0; r < this.rows; r++) this.gy[r] = this.oy + (r + 0.5) * this.cellCssH;
 
     this.resetAtlas();
+    /* 셀 피치·글꼴이 바뀌었으니 구운 시트와 글리프 덮임표를 버린다(다음에 쓸 때 다시 굽는다) */
+    this.shadeCache = {};
+    this.shadeTab = null;
     this.buildBackground();
     this.buildWaveField();
   };
@@ -795,6 +805,10 @@ WBF.Ascii = (function () {
     var parts = f.fluid;
     var sheet = f.sheet;
     if (!parts || !parts.length || !sheet) return;
+    if (this.artShade && WBF.Shade && WBF.Shade.has(f.typeId) && !(f.typeId === 'juggernaut' && f.hot)) {
+      this.bodyShaded(f, now);
+      return;
+    }
 
     var pos = f.body.position;
     var sig = rgb(f.color);
@@ -848,6 +862,53 @@ WBF.Ascii = (function () {
     /* 회전 빈틈 보정(역매핑) — 시트가 기울어도 구멍이 뚫리지 않는다 */
     this.fillSheetGaps(f, sheet, pos, cw, chh, ca, sa, colFill, colStruct, colOuter);
 
+  };
+
+  /* ---------- 셰이딩 아트(구운 시트) ---------- */
+
+  Renderer.prototype.setArtShade = function (on) {
+    this.artShade = !!on;
+  };
+
+  /* 각도 단계별 구운 시트 — 처음 쓸 때 한 번만 굽는다 */
+  Renderer.prototype.shadeFor = function (f, ang) {
+    var ai = WBF.Shade.angleIndex(ang);
+    var key = f.typeId + '|' + ai;
+    var bk = this.shadeCache[key];
+    if (bk) return bk;
+    if (!this.shadeTab) this.shadeTab = WBF.Shade.glyphTable(this.atlasFont, this.spW, this.spH, GIDX);
+    var sig = rgb(f.color);
+    bk = WBF.Shade.bake(f.typeId, ai, {
+      fw: this.fw, fh: this.fh, sig: [sig.r, sig.g, sig.b], tab: this.shadeTab, sheet: f.sheet
+    });
+    this.shadeCache[key] = bk;
+    return bk;
+  };
+
+  /* 구운 시트를 파이터가 있는 셀 기준 정수 오프셋으로 복사한다. 회전 계산·역매핑이 없다.
+     흩날린 유체 입자는 기존처럼 자유 좌표에 그리고, 그 입자의 원래 칸에 대응하는 구운 칸은 비운다. */
+  Renderer.prototype.bodyShaded = function (f, now) {
+    var parts = f.fluid;
+    var pos = f.body.position;
+    var flash = now < f.flashUntil;
+    var sig = rgb(f.color);
+    var colFly = flash ? WHITE : mix(sig, 150, 0.35);
+    for (var i = 0; i < parts.length; i++) {
+      var pt = parts[i];
+      if (pt.st === 0) continue;
+      var gi0 = GIDX[pt.ch];
+      if (gi0) this.occupy(pos.x + pt.x, pos.y + pt.y, gi0, P_STRUCT, colFly.r, colFly.g, colFly.b, 0);
+    }
+    var bk = this.shadeFor(f, f.shapeAngle || 0);
+    if (!bk) return;
+    var cx0 = Math.floor(pos.x * this.invFw);
+    var cy0 = Math.floor(pos.y * this.invFh);
+    for (var k = 0; k < bk.n; k++) {
+      var s = bk.src[k];
+      if (s >= 0 && parts[s] && parts[s].st !== 0) continue;
+      if (flash) this.occupyC(cx0 + bk.dc[k], cy0 + bk.dr[k], bk.gi[k], bk.prio[k], 255, 255, 255, 0);
+      else this.occupyC(cx0 + bk.dc[k], cy0 + bk.dr[k], bk.gi[k], bk.prio[k], bk.r[k], bk.g[k], bk.b[k], 0);
+    }
   };
 
   /* 셀 중심을 시트 로컬 좌표로 되돌려 가장 가까운 시트 셀을 찾는다 */
@@ -968,6 +1029,23 @@ WBF.Ascii = (function () {
     var sheet = f.sheet;
     if (!tr || !tr.length || !sheet) return;
     var sig = rgb(f.color);
+    if (this.artShade && WBF.Shade && WBF.Shade.has(f.typeId)) {
+      /* 셰이딩 아트: 과거 각도의 구운 시트 가장자리 칸만 어두운 단색으로 깐다 */
+      for (var ti = 0; ti < tr.length; ti++) {
+        var t2 = tr[ti];
+        var tk = (ti + 1) / (tr.length + 1);
+        var tc = mix(sig, 26, 0.35 + 0.45 * (1 - tk));
+        var bk = this.shadeFor(f, t2.a);
+        if (!bk) continue;
+        var tx0 = Math.floor(t2.x * this.invFw);
+        var ty0 = Math.floor(t2.y * this.invFh);
+        for (var tq = 0; tq < bk.n; tq++) {
+          if (bk.prio[tq] < P_OUTER) continue;
+          this.occupyC(tx0 + bk.dc[tq], ty0 + bk.dr[tq], bk.gi[tq], P_FILL, tc.r, tc.g, tc.b, 0);
+        }
+      }
+      return;
+    }
     var cw = f.cellW || this.fw;
     var chh = f.cellH || this.fh;
     var cells = sheet.cells;

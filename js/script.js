@@ -869,6 +869,12 @@
       setLite(!lite, false);
       return;
     }
+    if ((ev.key === 'k' || ev.key === 'K') && game.renderer && game.renderer.setArtShade) {
+      /* 셰이딩 아트 시제품 비교: 구운 시트 <-> 기존 문자 시트 */
+      game.renderer.setArtShade(!game.renderer.artShade);
+      pushLog('ART_MODE = ' + (game.renderer.artShade ? 'SHADED' : 'SHEET') + ' // [K] toggle', 'sys');
+      return;
+    }
     if (ev.code === 'Space') {
       ev.preventDefault();
       /* 경기가 끝났거나 멈춰 있으면 Enter처럼 다시 시작, 진행 중이면 일시정지 */
