@@ -134,8 +134,7 @@ WBF.Ascii = (function () {
     this.shadeCache = {};
     this.shadeTab = null;
 
-    /* 시인성: 밝기 위계(장식 이펙트를 배경 쪽으로 누름) + 파이터 주변 1칸 녹아웃. V 키로 비교 */
-    this.vis = !/[?&]vis=0(&|$)/.test(window.location.search);
+    /* 시인성: 파이터 실루엣 칸 표시(녹아웃용) */
     this.markOn = false;
     this.cbMark = new Uint8Array(1);
     this.markList = new Int32Array(1);
@@ -270,6 +269,12 @@ WBF.Ascii = (function () {
   /* 한 행 = 한 가지 색(4bit 양자화) × 전 글리프 */
   Renderer.prototype.addRow = function (kr, kg, kb) {
     var row = this.rowN++;
+    this.paintRow(row, kr, kg, kb);
+    return row;
+  };
+
+  /* 행 하나를 지정 색으로 (다시) 그린다 — LRU 교체 때도 쓴다 */
+  Renderer.prototype.paintRow = function (row, kr, kg, kb) {
     var y = row * this.spH;
     var x2 = this.actx2;
     x2.clearRect(0, y, this.atlas.width, this.spH);
@@ -280,37 +285,67 @@ WBF.Ascii = (function () {
     for (var i = 1; i < GLYPHS.length; i++) {
       x2.fillText(GLYPHS[i], i * this.spW + this.spW / 2, y + this.spH * 0.56);
     }
-    return row;
   };
 
+  /* 색(4bit 키) → 아틀라스 행. 행마다 마지막으로 쓴 프레임 번호(rowUse)를 남긴다.
+     아틀라스(192행)가 꽉 차면 이번 프레임에 쓰지 않은 행 중 가장 오래 안 쓴 행을 새 색으로
+     다시 그려 넘겨준다(LRU). 이번 프레임에 192행을 모두 쓰고 있을 때만 가장 가까운 색 행을
+     빌려 쓰고, 그 빌림은 이번 프레임에만 캐시한다(다음 프레임에 행이 바뀔 수 있다).
+     예전에는 꽉 차면 -1을 돌려 그 색의 글자를 아예 그리지 않았다 — 셰이딩 아트·감광 이펙트가
+     색을 연속으로 만들어 경기 시작 직후 192행이 다 찼다. */
   Renderer.prototype.rowFor = function (r, g, b) {
     var kr = r >> 4, kg = g >> 4, kb = b >> 4;
     var key = (kr << 8) | (kg << 4) | kb;
     var row = this.rowMap[key];
-    if (row !== undefined) return row;
-    if (!this.rowKey || this.rowKey.length < this.ATLAS_ROWS) this.rowKey = new Int16Array(this.ATLAS_ROWS);
-    if (this.rowN >= this.ATLAS_ROWS) {
-      /* 아틀라스가 꽉 차면 글자를 버리지 않고 이미 있는 색 중 가장 가까운 행을 쓴다.
-         (예전에는 -1을 돌려 그 색의 글자가 아예 그려지지 않았다. 셰이딩 아트·감광 이펙트처럼
-         색을 연속으로 만드는 요소가 늘면서 경기 시작 직후 192행이 다 찼다.)
-         새 색이 처음 나올 때 한 번만 찾고 결과를 rowMap에 캐시한다. */
-      var best = 0;
-      var bd = 1e9;
-      for (var i = 0; i < this.rowN; i++) {
-        var k2 = this.rowKey[i];
-        var dr = (k2 >> 8) - kr;
-        var dg = ((k2 >> 4) & 15) - kg;
-        var db = (k2 & 15) - kb;
-        var d = dr * dr * 3 + dg * dg * 4 + db * db * 2;
-        if (d < bd) { bd = d; best = i; }
-      }
-      this.rowMap[key] = best;
-      return best;
+    var fno = this.frameNo;
+    if (row !== undefined) {
+      this.rowUse[row] = fno;
+      return row;
     }
-    row = this.addRow(kr, kg, kb);
-    this.rowKey[row] = key;
-    this.rowMap[key] = row;
-    return row;
+    if (!this.rowKey || this.rowKey.length < this.ATLAS_ROWS) {
+      this.rowKey = new Int16Array(this.ATLAS_ROWS);
+      this.rowUse = new Int32Array(this.ATLAS_ROWS);
+    }
+    if (this.rowN < this.ATLAS_ROWS) {
+      row = this.addRow(kr, kg, kb);
+      this.rowKey[row] = key;
+      this.rowUse[row] = fno;
+      this.rowMap[key] = row;
+      return row;
+    }
+    if (this.rowFall && this.rowFallF === fno && this.rowFall[key] !== undefined) return this.rowFall[key];
+    var i;
+    var old = -1;
+    /* 최근 30프레임 안에 쓴 행은 교체하지 않는다 — 한 번에 쓰는 색이 192가지를 넘을 때
+       행을 비우자마자 다시 필요해지는 스래싱을 막는다. 그때는 아래 가까운 색 빌림으로 간다. */
+    var ot = fno - 30;
+    for (i = 0; i < this.rowN; i++) {
+      if (this.rowUse[i] < ot) { ot = this.rowUse[i]; old = i; }
+    }
+    if (old >= 0) {
+      delete this.rowMap[this.rowKey[old]];
+      this.paintRow(old, kr, kg, kb);
+      this.rowKey[old] = key;
+      this.rowUse[old] = fno;
+      this.rowMap[key] = old;
+      return old;
+    }
+    var best = 0;
+    var bd = 1e9;
+    for (i = 0; i < this.rowN; i++) {
+      var k2 = this.rowKey[i];
+      var dr = (k2 >> 8) - kr;
+      var dg = ((k2 >> 4) & 15) - kg;
+      var db = (k2 & 15) - kb;
+      var d = dr * dr * 3 + dg * dg * 4 + db * db * 2;
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (!this.rowFall || this.rowFallF !== fno) {
+      this.rowFall = {};
+      this.rowFallF = fno;
+    }
+    this.rowFall[key] = best;
+    return best;
   };
 
   /* 헤일로(가짜 글로우) — blur/filter 없이 반투명 글자를 겹쳐 만든다 */
@@ -838,22 +873,18 @@ WBF.Ascii = (function () {
   };
 
   /* 밝기 위계: 장식 이펙트(잔열·잔상·연기·파편·링)는 색을 배경(#050507) 쪽으로 눌러
-     파이터 본체보다 어둡게 둔다. k = 남길 밝기 비율. vis가 꺼져 있으면 원래 색 그대로다. */
+     파이터 본체보다 어둡게 둔다. k = 남길 밝기 비율. */
   Renderer.prototype.pushDecoDim = function (ch, wx, wy, color, k, prio) {
     var gi = GIDX[ch];
     if (!gi) return;
     var cc = rgb(color && color.charAt && color.charAt(0) === '#' ? color : '#ffffff');
-    if (!this.vis) {
-      this.occupy(wx, wy, gi, prio, cc.r, cc.g, cc.b, 0);
-      return;
-    }
     this.occupy(wx, wy, gi, prio, 5 + (cc.r - 5) * k, 5 + (cc.g - 5) * k, 7 + (cc.b - 7) * k, 0);
   };
 
   /* 녹아웃: 실루엣 칸에 붙은 8이웃 중 장식(P_FILL) 칸을 비워 둘레에 검은 테두리를 만든다.
      배경이 복잡해도 윤곽이 끊기지 않는다. 프레임(P_FRAME)·본체·에너지 이펙트는 건드리지 않는다. */
   Renderer.prototype.knockOut = function () {
-    if (!this.vis || !this.markN) return;
+    if (!this.markN) return;
     var cols = this.cols;
     var rows = this.rows;
     var mk = this.cbMark;
@@ -883,7 +914,7 @@ WBF.Ascii = (function () {
     var parts = f.fluid;
     var sheet = f.sheet;
     if (!parts || !parts.length || !sheet) return;
-    if (this.artShade && WBF.Shade && WBF.Shade.has(f.typeId) && !(f.typeId === 'juggernaut' && f.hot)) {
+    if (this.artShade && WBF.Shade && WBF.Shade.has(f.typeId)) {
       this.bodyShaded(f, now);
       return;
     }
@@ -902,7 +933,7 @@ WBF.Ascii = (function () {
     var colOuter = flash ? WHITE : mix(sig, 255, 0.45);
     var colStruct = flash ? WHITE : { r: 236, g: 241, b: 249 };
     var colFill = flash ? WHITE : mix(sig, 96, 0.5);
-    var colFly = flash ? WHITE : (this.vis ? mix(sig, 70, 0.4) : mix(sig, 150, 0.35));
+    var colFly = flash ? WHITE : mix(sig, 70, 0.4);
     if (f.hot && f.typeId === 'juggernaut') {
       /* 과열 가시는 백열 — 글로우 없이 색만 올린다 */
       colOuter = { r: 255, g: 240, b: 190 };
@@ -951,20 +982,22 @@ WBF.Ascii = (function () {
     this.artShade = !!on;
   };
 
-  Renderer.prototype.setVis = function (on) {
-    this.vis = !!on;
-  };
-
-  /* 각도 단계별 구운 시트 — 처음 쓸 때 한 번만 굽는다 */
+  /* 각도 단계별 구운 시트 — 처음 쓸 때 한 번만 굽는다.
+     변형: 분열 자식은 충돌 원(반경 0.72배)에 맞춰 0.72배, JUGGERNAUT 과열은 1.22배 팽창 +
+     시그니처 색을 백열색(255,200,110)으로 바꿔 구워 크롬 3띠가 함께 달아오른다. */
+  var HOT_SIG = [255, 200, 110];
   Renderer.prototype.shadeFor = function (f, ang) {
     var ai = WBF.Shade.angleIndex(ang);
-    var key = f.typeId + '|' + ai;
+    var hot = f.typeId === 'juggernaut' && f.hot;
+    var scale = f.isChild ? 0.72 : (hot ? 1.22 : 1);
+    var key = f.typeId + '|' + ai + (hot ? '|h' : '') + (f.isChild ? '|c' : '');
     var bk = this.shadeCache[key];
     if (bk) return bk;
     if (!this.shadeTab) this.shadeTab = WBF.Shade.glyphTable(this.atlasFont, this.spW, this.spH, GIDX);
     var sig = rgb(f.color);
     bk = WBF.Shade.bake(f.typeId, ai, {
-      fw: this.fw, fh: this.fh, sig: [sig.r, sig.g, sig.b], tab: this.shadeTab, sheet: f.sheet
+      fw: this.fw, fh: this.fh, sig: hot ? HOT_SIG : [sig.r, sig.g, sig.b], tab: this.shadeTab,
+      sheet: f.sheet, scale: scale
     });
     this.shadeCache[key] = bk;
     return bk;
@@ -977,7 +1010,7 @@ WBF.Ascii = (function () {
     var pos = f.body.position;
     var flash = now < f.flashUntil;
     var sig = rgb(f.color);
-    var colFly = flash ? WHITE : (this.vis ? mix(sig, 70, 0.4) : mix(sig, 150, 0.35));
+    var colFly = flash ? WHITE : mix(sig, 70, 0.4);
     for (var i = 0; i < parts.length; i++) {
       var pt = parts[i];
       if (pt.st === 0) continue;
@@ -1121,7 +1154,7 @@ WBF.Ascii = (function () {
       for (var ti = 0; ti < tr.length; ti++) {
         var t2 = tr[ti];
         var tk = (ti + 1) / (tr.length + 1);
-        var tc = mix(sig, 26, (0.35 + 0.45 * (1 - tk)) * (this.vis ? 0.45 : 1));
+        var tc = mix(sig, 26, (0.35 + 0.45 * (1 - tk)) * 0.45);
         var bk = this.shadeFor(f, t2.a);
         if (!bk) continue;
         var tx0 = Math.floor(t2.x * this.invFw);
@@ -1141,7 +1174,7 @@ WBF.Ascii = (function () {
       var g2 = tr[i];
       var k = (i + 1) / (n + 1);
       /* 뒤로 갈수록 어두운 단색 — 불투명 덧그리기만 사용한다 */
-      var col = mix(sig, 26, (0.35 + 0.45 * (1 - k)) * (this.vis ? 0.45 : 1));
+      var col = mix(sig, 26, (0.35 + 0.45 * (1 - k)) * 0.45);
       var ca = Math.cos(g2.a);
       var sa = Math.sin(g2.a);
       for (var c = 0; c < cells.length; c++) {
@@ -1250,7 +1283,7 @@ WBF.Ascii = (function () {
         var ev = Math.sqrt(eb.vx * eb.vx + eb.vy * eb.vy) || 1;
         var ek = this.fw * 0.9;
         this.pushDecoDim(emberRamp[ei > 3 ? 3 : ei + 1],
-          eb.x - (eb.vx / ev) * ek, eb.y - (eb.vy / ev) * ek, '#ff9a4a', this.vis ? 0.55 : 1, P_FILL);
+          eb.x - (eb.vx / ev) * ek, eb.y - (eb.vy / ev) * ek, '#ff9a4a', 0.55, P_FILL);
       }
     }
     /* 고유 스킬: 충전 관통 레이저 — 코어 + 외곽 2겹 문자 빔, 마디마다 'X' */
@@ -1313,7 +1346,8 @@ WBF.Ascii = (function () {
     /* 무기 잔열 궤적: 가장 많이 깔리는 장식이라 가장 어둡게 두고 수명에 따라 더 옅어진다 */
     for (i = 0; i < e.segs.length; i++) {
       var s = e.segs[i];
-      var sk = 0.22 + 0.26 * (s.life / s.max);
+      /* 감광 비율은 0.22~0.48을 4단계로 끊어 색 종류를 늘리지 않는다 */
+      var sk = 0.22 + 0.26 * (Math.round((s.life / s.max) * 3) / 3);
       for (k = 1; k <= 4; k++) {
         var t = k / 4;
         this.pushDecoDim(t > 0.5 ? '-' : '=', s.x1 + (s.x2 - s.x1) * t, s.y1 + (s.y2 - s.y1) * t, s.color, sk, P_FILL);
@@ -1467,6 +1501,8 @@ WBF.Ascii = (function () {
     }
 
     this.clearCells();
+    /* 색 아틀라스 LRU용 프레임 번호 */
+    this.frameNo = (this.frameNo || 0) + 1;
 
     this.frame(g);
     for (i = 0; i < g.fighters.length; i++) {

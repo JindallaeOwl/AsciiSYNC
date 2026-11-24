@@ -16,13 +16,14 @@ WBF.TYPES = [
   { id: 'splitter',   abbr: 'SPL', tag: 'SPLITTER',   name: '분열술사', color: '#b829ff', hp: 230, radius: 38, cruise: 11.8, skillName: 'FRAG_BURST',   skillColor: '#dda6ff' }
 ];
 
-/* ---------- 셰이딩 아트 원본(시제품: BLADE) ----------
+/* ---------- 셰이딩 아트 원본(4종) ----------
    손으로 쓴 문자 시트 대신 도형 + 재질 + 두께로 파이터를 정의하고, js/shade.js가 각도별로
    셀마다 가장 닮은 문자와 크롬 반사 색을 구워 둔다(1셀 1문자 규칙은 그대로).
    좌표: 참조 셀 6×11px 기준 px, 회전 중심 원점, +x = 정면(칼끝), +y = 아래.
    parts는 뒤 → 앞 순서(뒤에 있는 부위가 앞 부위를 덮는다).
    - shape: { circle: [cx, cy, r] } | { poly: [[x,y]...], mirror: true } — mirror면 poly는 y=0 축 위 점에서 시작해 축 위 점으로 끝나는 위쪽 절반 경로이고, 아래 절반은 y를 뒤집어 거꾸로 이어 붙인다
    - mat: materials 키
+   - grain(선택): 이 부위만 결 각도를 따로 준다(바퀴살처럼 같은 재질이 여러 방향일 때)
    materials:
    - env: [하늘, 어두운 띠, 바닥] — '#hex' | 'sig'(시그니처 색) | 'sig+0.6'(흰색 쪽으로) | 'sig-0.7'(검정 쪽으로)
    - profile: 'bevel'(가장자리에서 W까지 직선 경사 → 날 능선) | 'dome'(둥글게 부푼 면)
@@ -46,6 +47,92 @@ WBF.ART = {
       { shape: { poly: [[-15, 0], [-15, -11], [48, -11], [78, 0]], mirror: true }, mat: 'steel' },
       { shape: { poly: [[-29, 0], [-29, -27], [-22, -36], [-14, -27], [-14, 0]], mirror: true }, mat: 'brass' },
       { shape: { circle: [-21, 0, 4.5] }, mat: 'gem' }
+    ]
+  },
+
+  /* RAILGUN — 레일 캐논: 지느러미 달린 개머리판 · 에너지 코어가 박힌 몸체 ·
+     위아래 두 줄 레일 사이로 흐르는 플라즈마 채널. 조준 방향(+x)을 늘 바라본다. */
+  railgun: {
+    materials: {
+      casing: { env: ['#d8dce6', '#4a505e', 'sig-0.35'], profile: 'bevel', W: 6, H: 6, grain: 0 },
+      rail:   { env: ['sig+0.75', 'sig-0.5', 'sig'], profile: 'bevel', W: 4, H: 4, grain: 0 },
+      plasma: { env: ['#ffffff', 'sig+0.3', 'sig+0.5'], profile: 'dome', W: 2, H: 2, grain: 0 },
+      core:   { env: ['#ffffff', 'sig-0.2', 'sig+0.3'], profile: 'dome', W: 6, H: 7, ramp: 'o@' }
+    },
+    parts: [
+      { shape: { poly: [[-58, -8], [-52, -22], [-40, -22], [-36, -8]] }, mat: 'casing' },
+      { shape: { poly: [[-58, 8], [-52, 22], [-40, 22], [-36, 8]] }, mat: 'casing' },
+      { shape: { poly: [[-62, 0], [-62, -9], [-34, -11], [-34, 0]], mirror: true }, mat: 'casing' },
+      { shape: { poly: [[-34, 0], [-34, -13], [6, -13], [12, -8], [12, 0]], mirror: true }, mat: 'casing' },
+      { shape: { poly: [[6, -14], [60, -14], [72, -9], [6, -7]] }, mat: 'rail' },
+      { shape: { poly: [[6, 14], [60, 14], [72, 9], [6, 7]] }, mat: 'rail' },
+      { shape: { poly: [[6, 0], [6, -3], [66, -3], [70, 0]], mirror: true }, mat: 'plasma' },
+      { shape: { circle: [-14, 0, 7.5] }, mat: 'core' }
+    ]
+  },
+
+  /* JUGGERNAUT — 파쇄 톱니바퀴: 톱니 8개 · 움푹한 원판 · 바퀴살 3개 · 황동 허브 ·
+     앞쪽 충각 하나. 천천히 돌다가 과열 돌파 때 충각을 진행 방향으로 돌린다. */
+  juggernaut: (function () {
+    var TAU = Math.PI * 2;
+    function gear(n, rRoot, rTip) {
+      var pts = [];
+      var pitch = TAU / n;
+      for (var i = 0; i < n; i++) {
+        var a = i * pitch;
+        var seq = [[-0.25, rRoot], [-0.12, rTip], [0.12, rTip], [0.25, rRoot]];
+        for (var k = 0; k < seq.length; k++) {
+          var t = a + seq[k][0] * pitch;
+          pts.push([Math.cos(t) * seq[k][1], Math.sin(t) * seq[k][1]]);
+        }
+      }
+      return pts;
+    }
+    function spoke(ang, r0, r1, half) {
+      var c = Math.cos(ang), s = Math.sin(ang);
+      return [[c * r0 - s * half, s * r0 + c * half], [c * r1 - s * half, s * r1 + c * half],
+        [c * r1 + s * half, s * r1 - c * half], [c * r0 + s * half, s * r0 - c * half]];
+    }
+    var parts = [
+      { shape: { poly: [[36, 0], [36, -11], [62, 0]], mirror: true }, mat: 'ram' },
+      { shape: { poly: gear(8, 34, 46) }, mat: 'iron' },
+      { shape: { circle: [0, 0, 27] }, mat: 'plate' }
+    ];
+    for (var i = 0; i < 3; i++) {
+      var sa = i * TAU / 3 + Math.PI / 6;
+      parts.push({ shape: { poly: spoke(sa, 10, 30, 3.6) }, mat: 'iron', grain: sa });
+    }
+    parts.push({ shape: { circle: [0, 0, 12] }, mat: 'hub' });
+    return {
+      materials: {
+        ram:   { env: ['sig+0.8', 'sig-0.5', 'sig'], profile: 'bevel', W: 8, H: 9, grain: 0 },
+        iron:  { env: ['sig+0.55', 'sig-0.55', 'sig-0.1'], profile: 'bevel', W: 6, H: 7, ramp: '#' },
+        plate: { env: ['sig-0.15', 'sig-0.62', 'sig-0.4'], profile: 'dome', W: 10, H: 3, ramp: '=' },
+        hub:   { env: ['#fff4cc', '#8a5a10', '#e0a030'], profile: 'dome', W: 12, H: 10, ramp: '@' }
+      },
+      parts: parts
+    };
+  })(),
+
+  /* SPLITTER — 갈라진 결정체: 가운데가 쪼개진 육각 결정 두 반쪽에 핵이 하나씩(곧 둘로 나뉠 존재),
+     빛나는 균열, 주위에 떠 있는 결정 파편 4개. 계속 돌며 패싯 광택이 번갈아 번쩍인다. */
+  splitter: {
+    materials: {
+      crystal: { env: ['sig+0.75', 'sig-0.5', 'sig+0.05'], profile: 'bevel', W: 14, H: 16, ramp: '=+*#' },
+      seam:    { env: ['#ffffff', 'sig+0.5', 'sig+0.7'], profile: 'dome', W: 2, H: 2, grain: Math.PI / 2 },
+      nucleus: { env: ['#ffffff', 'sig-0.15', 'sig+0.35'], profile: 'dome', W: 6, H: 8, ramp: 'o@' },
+      shard:   { env: ['sig+0.6', 'sig-0.45', 'sig'], profile: 'bevel', W: 3, H: 4, ramp: '*' }
+    },
+    parts: [
+      { shape: { poly: [[48, -18], [62, -30], [57, -11]] }, mat: 'shard' },
+      { shape: { poly: [[48, 18], [62, 30], [57, 11]] }, mat: 'shard' },
+      { shape: { poly: [[-48, -18], [-62, -30], [-57, -11]] }, mat: 'shard' },
+      { shape: { poly: [[-48, 18], [-62, 30], [-57, 11]] }, mat: 'shard' },
+      { shape: { poly: [[-44, 0], [-22, -28], [-3, -28], [-3, 0]], mirror: true }, mat: 'crystal' },
+      { shape: { poly: [[3, 0], [3, -28], [22, -28], [44, 0]], mirror: true }, mat: 'crystal' },
+      { shape: { poly: [[-3, 0], [-3, -26], [0, -32], [3, -26], [3, 0]], mirror: true }, mat: 'seam' },
+      { shape: { circle: [-20, 0, 6.5] }, mat: 'nucleus' },
+      { shape: { circle: [20, 0, 6.5] }, mat: 'nucleus' }
     ]
   }
 };
@@ -118,6 +205,12 @@ WBF.Shapes = (function () {
   function sheetFor(typeId) {
     var s = cache[typeId];
     if (s) return s;
+    /* 셰이딩 아트 원본이 있으면 원본을 각도 0으로 구운 시트를 쓴다(유체 입자·흩날림 문자가
+       실제 실루엣과 같은 칸에서 나온다). 아래 손으로 쓴 시트는 원본이 없을 때의 예비다. */
+    if (WBF.Shade && WBF.Shade.has(typeId)) {
+      s = WBF.Shade.sheetFromArt(typeId);
+      if (s) { cache[typeId] = s; return s; }
+    }
     var rows = SHEETS[typeId] || SHEETS.blade;
     var cols = 0, i, j;
     for (i = 0; i < rows.length; i++) {

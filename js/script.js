@@ -875,12 +875,6 @@
       pushLog('ART_MODE = ' + (game.renderer.artShade ? 'SHADED' : 'SHEET') + ' // [K] toggle', 'sys');
       return;
     }
-    if ((ev.key === 'v' || ev.key === 'V') && game.renderer && game.renderer.setVis) {
-      /* 시인성 비교: 밝기 위계 + 파이터 주변 녹아웃 <-> 예전 표시 */
-      game.renderer.setVis(!game.renderer.vis);
-      pushLog('VIS_MODE = ' + (game.renderer.vis ? 'ON' : 'OFF') + ' // [V] toggle', 'sys');
-      return;
-    }
     if (ev.code === 'Space') {
       ev.preventDefault();
       /* 경기가 끝났거나 멈춰 있으면 Enter처럼 다시 시작, 진행 중이면 일시정지 */

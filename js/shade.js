@@ -97,6 +97,7 @@ WBF.Shade = (function () {
     for (var i = 0; i < src.parts.length; i++) {
       var sp = src.parts[i];
       var part = { mat: src.materials[sp.mat], matKey: sp.mat };
+      part.grain = sp.grain !== undefined ? sp.grain : part.mat.grain;
       if (sp.shape.circle) {
         var c = sp.shape.circle;
         part.kind = 0;
@@ -286,21 +287,25 @@ WBF.Shade = (function () {
   }
 
   /* ---------- 굽기 ----------
-     opt: { fw, fh, sig:[r,g,b], tab(glyphTable), sheet(기존 문자 시트: 유체 입자 대응용) }
+     opt: { fw, fh, sig:[r,g,b], tab(glyphTable), sheet(유체 시트: 입자 대응용), scale(배율, 기본 1) }
      결과: { n, dc, dr, gi, prio, r, g, b, src } — dc/dr는 파이터가 있는 셀 기준 정수 오프셋 */
   var cover = new Float32Array(SX * SY);
   var col = [0, 0, 0];
   var votes = new Int32Array(32);
   /* 결 방향(화면 각도 0~π) → 선 문자. +y가 아래이므로 시계 방향 45°는 '\' */
   var GRAIN_CH = ['=', '\\', '|', '/'];
+  /* 재질 팔레트를 뽑는 반사 y 위치(하늘 밝은 쪽 → 바닥 어두운 쪽 8곳) */
+  var PAL_T = [-1.0, -0.55, -0.3, -0.12, 0.02, 0.18, 0.5, 1.0];
 
   function bake(typeId, aIdx, opt) {
     var prep = prepare(typeId);
     if (!prep) return null;
     var fw = opt.fw;
     var fh = opt.fh;
-    var kx = fw / REF_W;
-    var ky = fh / REF_H;
+    var scale = opt.scale || 1;
+    /* 배율: 분열 자식(0.72)·JUGGERNAUT 과열 팽창(1.22)처럼 같은 원본을 크게/작게 굽는다 */
+    var kx = fw * scale / REF_W;
+    var ky = fh * scale / REF_H;
     var ang = aIdx * TAU / ANGLES;
     var ca = Math.cos(ang);
     var sa = Math.sin(ang);
@@ -312,6 +317,7 @@ WBF.Shade = (function () {
     var parts = prep.parts;
     var nParts = parts.length;
     var envCache = {};
+    var palCache = {};
     var reach = R + Math.sqrt(fw * fw + fh * fh);
     var reach2 = reach * reach;
 
@@ -373,6 +379,27 @@ WBF.Shade = (function () {
         if (mean < MIN_COVER) continue;
         col[0] /= nShade; col[1] /= nShade; col[2] /= nShade;
 
+        /* 색 종류 묶기: 칸을 가장 많이 덮은 부위 재질의 크롬 3띠에서 뽑은 8색 팔레트 중
+           가장 가까운 색으로 맞춘다. 연속 색을 그대로 두면 글자 색 아틀라스(192행)가 넘쳐
+           행을 계속 다시 그리게 된다(4종 동시 경기에서 초당 수백 번). */
+        var pd = 0;
+        for (vv = 1; vv < nParts; vv++) if (votes[vv] > votes[pd]) pd = vv;
+        var pal = palCache[parts[pd].matKey];
+        if (!pal) {
+          var pst = envCache[parts[pd].matKey];
+          if (!pst) pst = envCache[parts[pd].matKey] = envStops(parts[pd].mat.env, opt.sig);
+          pal = palCache[parts[pd].matKey] = [];
+          for (var pt = 0; pt < PAL_T.length; pt++) pal.push(envAt(pst, PAL_T[pt]));
+        }
+        var pBest = 0;
+        var pDist = 1e9;
+        for (var pk = 0; pk < pal.length; pk++) {
+          var e0 = pal[pk][0] - col[0], e1 = pal[pk][1] - col[1], e2 = pal[pk][2] - col[2];
+          var ed = e0 * e0 + e1 * e1 + e2 * e2;
+          if (ed < pDist) { pDist = ed; pBest = pk; }
+        }
+        col[0] = pal[pBest][0]; col[1] = pal[pBest][1]; col[2] = pal[pBest][2];
+
         var gi;
         var prio;
         if (mean >= FULL) {
@@ -380,9 +407,10 @@ WBF.Shade = (function () {
           var pb = 0;
           for (vv = 1; vv < nParts; vv++) if (votes[vv] > votes[pb]) pb = vv;
           var fm = parts[pb].mat;
-          if (fm.grain !== undefined) {
+          var fg = parts[pb].grain;
+          if (fg !== undefined) {
             /* 결: 원본 결 각도 + 회전 → 화면 방향에 맞는 선 문자(밝기는 색이 맡는다) */
-            var th = (fm.grain + ang) % Math.PI;
+            var th = (fg + ang) % Math.PI;
             if (th < 0) th += Math.PI;
             gi = opt.tab.gidx[GRAIN_CH[Math.round(th / (Math.PI / 4)) % 4]];
           } else {
@@ -403,8 +431,9 @@ WBF.Shade = (function () {
         if (sidx) {
           var cxw = dc * fw;
           var cyw = dr * fh;
-          var sc = Math.round((cxw * ca + cyw * sa) / fw) + sheet.cc;
-          var sr = Math.round((-cxw * sa + cyw * ca) / fh) + sheet.cr;
+          /* 유체 시트는 배율 1로 구운 칸이므로 배율로 나눠 같은 부위의 칸을 찾는다 */
+          var sc = Math.round((cxw * ca + cyw * sa) / (fw * scale)) + sheet.cc;
+          var sr = Math.round((-cxw * sa + cyw * ca) / (fh * scale)) + sheet.cr;
           if (sc >= 0 && sr >= 0 && sc < sheet.cols && sr < sheet.rows) src = sidx[sr * sheet.cols + sc];
         }
 
@@ -422,6 +451,52 @@ WBF.Shade = (function () {
     return { n: n, dc: oDc, dr: oDr, gi: oGi, prio: oPr, r: oR, g: oG, b: oB, src: oSrc };
   }
 
+  /* ---------- 유체 시트 ----------
+     원본을 각도 0·배율 1·참조 셀(6×11)로 한 번 구워 손으로 쓴 문자 시트와 같은 형식
+     { cols, rows, cc, cr, cells[{c, r, ch, tier}] }으로 돌려준다. 유체 입자(1칸 1입자)와
+     흩날림 문자, 기존 그리기 경로가 이 시트를 쓴다. 어떤 칸이 덮이는지는 글꼴과 무관하고,
+     문자는 기본 글꼴로 잰 덮임표로 고른다. */
+  var sheetCache = {};
+  function sheetFromArt(typeId) {
+    if (sheetCache[typeId]) return sheetCache[typeId];
+    var prep = prepare(typeId);
+    if (!prep) return null;
+    var chars = [' '];
+    var gidx = {};
+    function addCh(ch) {
+      if (gidx[ch] === undefined) { gidx[ch] = chars.length; chars.push(ch); }
+    }
+    var i;
+    for (i = 0; i < SHAPE_CH.length; i++) addCh(SHAPE_CH[i]);
+    for (i = 0; i < RAMP.length; i++) addCh(RAMP[i]);
+    for (i = 0; i < GRAIN_CH.length; i++) addCh(GRAIN_CH[i]);
+    var mats = prep.src.materials;
+    for (var mk in mats) {
+      if (mats[mk].ramp) for (i = 0; i < mats[mk].ramp.length; i++) addCh(mats[mk].ramp.charAt(i));
+    }
+    var tab = glyphTable('700 20px "JetBrains Mono","Courier New",monospace', 12, 22, gidx);
+    var bk = bake(typeId, 0, { fw: REF_W, fh: REF_H, sig: [255, 255, 255], tab: tab, sheet: null });
+    var minC = 0, maxC = 0, minR = 0, maxR = 0;
+    for (i = 0; i < bk.n; i++) {
+      if (bk.dc[i] < minC) minC = bk.dc[i];
+      if (bk.dc[i] > maxC) maxC = bk.dc[i];
+      if (bk.dr[i] < minR) minR = bk.dr[i];
+      if (bk.dr[i] > maxR) maxR = bk.dr[i];
+    }
+    var cells = [];
+    for (i = 0; i < bk.n; i++) {
+      cells.push({
+        c: bk.dc[i] - minC,
+        r: bk.dr[i] - minR,
+        ch: chars[bk.gi[i]] || '#',
+        tier: bk.prio[i] >= P_OUTER ? 3 : 2
+      });
+    }
+    var sh = { id: typeId, cols: maxC - minC + 1, rows: maxR - minR + 1, cc: -minC, cr: -minR, cells: cells };
+    sheetCache[typeId] = sh;
+    return sh;
+  }
+
   /* 각도(라디안) → 단계 번호 */
   function angleIndex(a) {
     var k = Math.round((a / TAU) * ANGLES) % ANGLES;
@@ -431,6 +506,7 @@ WBF.Shade = (function () {
   return {
     has: function (typeId) { return !!(WBF.ART && WBF.ART[typeId]); },
     bake: bake,
+    sheetFromArt: sheetFromArt,
     glyphTable: glyphTable,
     angleIndex: angleIndex,
     ANGLES: ANGLES,
