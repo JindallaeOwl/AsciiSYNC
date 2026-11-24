@@ -1050,7 +1050,8 @@ window.WBF = window.WBF || {};
     this.effects.flash(mx, my, rel > 7 ? '#ffffff' : '#ffdf70');
     if (rel > 7) {
       WBF.Audio.hit(1.2);
-      if (this.time - (this.hitLogAt[fa.id] || -9) > 0.4) {
+      /* 워밍업 중처럼 양쪽 피해가 모두 0이면 남기지 않는다(-0 HP 줄 방지) */
+      if ((d1 > 0 || d2 > 0) && this.time - (this.hitLogAt[fa.id] || -9) > 0.4) {
         this.hitLogAt[fa.id] = this.time;
         /* 충돌은 양쪽이 서로 피해를 받으므로 각자 잃은 체력을 자기 이름 옆에 적는다 */
         this.log(fa.label + ' -' + Math.round(d2) + ' HP <> ' + fb.label + ' -' + Math.round(d1) + ' HP', 'hit');

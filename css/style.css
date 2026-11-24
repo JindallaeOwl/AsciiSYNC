@@ -1,15 +1,20 @@
 /* TUI / 모노스페이스 브루탈리즘 — 둥근 모서리·그라데이션·그림자 없음 */
+/* 배경은 타이틀 화면(#181818)과 같은 중성 회색 한 계열로 맞춘다(푸른 기를 섞지 않는다).
+   보조 글자(--faint)는 배경 대비 약 3:1 이상으로 둬 읽히게 한다. */
 :root {
-  --bg: #080a0f;
+  --bg: #151515;
   --arena: #050507;
   --ink: #33ff66;
   --amber: #ffb000;
   --crimson: #ff2a55;
-  --dim: #4a5568;
-  --line: #1b2430;
-  --line-soft: #141a22;
-  --panel: #0a0d13;
-  --sel: rgba(255, 80, 80, 0.08);
+  --dim: #7a7a7a;
+  --faint: #5c5c5c;
+  --line: #2a2a2a;
+  --line-soft: #222222;
+  --panel: #1b1b1b;
+  --bar: #1f1f1f;
+  --sel: rgba(255, 255, 255, 0.05);
+  --scroll: #3a3a3a;
 }
 
 * { box-sizing: border-box; }
@@ -52,9 +57,9 @@ html, body {
   gap: 10px;
   height: 28px;
   padding: 0 10px;
-  background: #121215;
-  border-top: 1px solid #1b1b20;
-  border-bottom: 1px solid #1b1b20;
+  background: var(--bar);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   font-size: 11px;
   color: var(--dim);
   white-space: nowrap;
@@ -70,11 +75,11 @@ html, body {
   margin-left: auto;
   padding: 0 8px;
   color: var(--dim);
-  border-left: 1px solid #1b1b20;
-  border-right: 1px solid #1b1b20;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   user-select: none;
 }
-.sb-mid .fps-opt { cursor: pointer; padding: 0 2px; color: #6b7688; }
+.sb-mid .fps-opt { cursor: pointer; padding: 0 2px; color: var(--dim); }
 .sb-mid .fps-opt:hover { background: var(--ink); color: #05070b; }
 .sb-mid .fps-opt.on { background: var(--ink); color: #05070b; }
 
@@ -109,7 +114,7 @@ html, body {
   flex: none;
 }
 .pane-head .tag { color: var(--amber); }
-.pane-head .hint { color: #2f3947; margin-left: auto; }
+.pane-head .hint { color: var(--faint); margin-left: auto; }
 .pane-head::after {
   content: '';
   order: 1;
@@ -129,7 +134,7 @@ html, body {
   margin-left: 10px;
   letter-spacing: 0.06em;
 }
-.pane-head .lang-sep { color: #2f3947; }
+.pane-head .lang-sep { color: var(--faint); }
 .pane-head .lang-opt {
   appearance: none;
   background: none;
@@ -139,7 +144,7 @@ html, body {
   margin: 0;
   font: inherit;
   letter-spacing: inherit;
-  color: #6b7688;
+  color: var(--dim);
   cursor: pointer;
 }
 .pane-head .lang-opt:hover { background: var(--amber); color: #05070b; }
@@ -158,7 +163,7 @@ html, body {
   line-height: 1.72;
   white-space: nowrap;
   scrollbar-width: thin;
-  scrollbar-color: #263340 transparent;
+  scrollbar-color: var(--scroll) transparent;
 }
 
 .code .line {
@@ -184,11 +189,11 @@ html, body {
   flex: none;
   width: 18px;
   text-align: right;
-  color: #2b3543;
+  color: var(--faint);
   user-select: none;
 }
 
-.cm { color: #3f4a5a; }
+.cm { color: var(--dim); }
 .kw { color: #b9a7ff; }
 .vr { color: #7fb8ff; }
 .num { color: #e09f5a; }
@@ -212,9 +217,9 @@ html, body {
   outline: none;
 }
 .tk.sel { background: var(--amber); color: #05070b; }
-.tk.off { color: #55606f; }
+.tk.off { color: var(--faint); }
 .tk.warn { color: var(--crimson); }
-.tk[disabled] { color: #2b3543; cursor: default; background: none; }
+.tk[disabled] { color: #444444; cursor: default; background: none; }
 
 /* ---------- 텔레메트리 & 로그 ---------- */
 .units {
@@ -231,9 +236,9 @@ html, body {
 .unit .uid { flex: none; width: 84px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
 .unit .bar { letter-spacing: -0.06em; color: var(--ink); }
 .unit .hp { flex: none; width: 58px; text-align: right; color: var(--dim); }
-.unit.dead .uid, .unit.dead .bar { color: #2b3543; }
+.unit.dead .uid, .unit.dead .bar { color: #444444; }
 
-.logwrap { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: #263340 transparent; }
+.logwrap { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
 
 .log {
   list-style: none;
@@ -387,8 +392,8 @@ html.ascii-cursor * { cursor: none !important; }
   overflow-wrap: break-word;
   border: 1px solid var(--sw-bc, currentColor);
   border-radius: 3px;
-  background: #0a0d13;
-  color: #d8e6f5;
+  background: var(--panel);
+  color: #e4e4e4;
   font-family: 'JetBrains Mono', 'Courier New', monospace;
   font-size: 11px;
   line-height: 1.55;
@@ -410,8 +415,8 @@ html.ascii-cursor * { cursor: none !important; }
      각진 3px 모서리를 그대로 유지한다. */
   border-color: transparent;
   border-radius: 8px;
-  background: rgba(10, 13, 19, 0.82);
-  color: #dcebfa;
+  background: rgba(27, 27, 27, 0.82);
+  color: #e4e4e4;
 }
 
 /* 점선을 네 변 직선 그라데이션으로 칠하면 꼭짓점 곡선 자리가 비어 버린다.

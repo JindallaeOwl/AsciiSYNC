@@ -29,13 +29,13 @@
 
   /* 에디터 토큰 팔레트 */
   var C = {
-    com: '#4a5568',
+    com: '#7a7a7a',
     kw: '#b9a7ff',
     id: '#8fd7ff',
     num: '#e09f5a',
     str: '#7ee0d0',
-    pun: '#5f6d7e',
-    dim: '#2b3543',
+    pun: '#808080',
+    dim: '#5c5c5c',
     ok: '#33ff66',
     warn: '#ff2a55',
     amber: '#ffb000'
@@ -114,7 +114,7 @@
     li.style.cssText = 'display:flex;align-items:baseline;gap:10px;padding:0 8px;line-height:1.5;font-size:11.5px;';
     var ln = document.createElement('span');
     ln.textContent = no < 10 ? '0' + no : String(no);
-    ln.style.cssText = 'flex:0 0 22px;text-align:right;color:#2b3543;user-select:none;';
+    ln.style.cssText = 'flex:0 0 22px;text-align:right;color:#5c5c5c;user-select:none;';
     li.appendChild(ln);
     var body = document.createElement('span');
     body.style.cssText = 'flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;';
@@ -683,7 +683,7 @@
     if (logWrap && logEl) logWrap.scrollTop = logEl.offsetTop + logEl.offsetHeight;
   }
 
-  var LOG_TONE = { time: '#3b4553', sys: '#6b7787', hit: '#9aa6b5', warn: '#e6edf5' };
+  var LOG_TONE = { time: '#5c5c5c', sys: '#8a8a8a', hit: '#b8b8b8', warn: '#f0f0f0' };
 
   function pushLog(text, kind) {
     var pinned = atBottom();
@@ -693,7 +693,7 @@
     var no = document.createElement('span');
     logSeq = (logSeq % 999) + 1;
     no.textContent = logSeq < 10 ? '0' + logSeq : String(logSeq);
-    no.style.cssText = 'flex:0 0 24px;text-align:right;color:#2b3543;user-select:none;';
+    no.style.cssText = 'flex:0 0 24px;text-align:right;color:' + LOG_TONE.time + ';user-select:none;';
 
     /* 로그는 색상 없이 회색 밝기 단계로만 구분한다(시각·번호 < 시스템 < 전투 < 경고).
        경고(탈락·서든데스·오류)만 가장 밝게 두어 훑어볼 때 눈에 걸리게 한다. */
@@ -750,7 +750,7 @@
     if (!list.length) {
       var empty = document.createElement('div');
       empty.textContent = '// NO_UNITS // click [▶ RUN]';
-      empty.style.cssText = 'color:#2b3543;font-size:10px;padding:2px 0;';
+      empty.style.cssText = 'color:#5c5c5c;font-size:10px;padding:2px 0;';
       unitsEl.appendChild(empty);
       return;
     }
@@ -767,7 +767,7 @@
       var name = document.createElement('span');
       name.textContent = f.label;
       name.style.cssText = 'flex:0 0 92px;overflow:hidden;text-overflow:ellipsis;';
-      name.style.color = f.alive ? f.color : '#2b3543';
+      name.style.color = f.alive ? f.color : '#444444';
 
       var track = document.createElement('span');
       track.textContent = bar(ratio);
@@ -778,13 +778,13 @@
       var gtrack = document.createElement('span');
       gtrack.textContent = barN(gaugeRatio, 6);
       gtrack.style.cssText = 'flex:0 0 auto;color:' +
-        (f.alive ? (f.gaugeReady ? '#ffffff' : (f.skillColor || C.amber)) : '#2b3543') + ';' +
+        (f.alive ? (f.gaugeReady ? '#ffffff' : (f.skillColor || C.amber)) : '#444444') + ';' +
         (f.gaugeReady ? 'font-weight:700;' : '');
       gtrack.title = (f.skillName || 'SKILL') + ' ' + Math.round(gaugeRatio * 100) + '%';
 
       var val = document.createElement('span');
       val.textContent = Math.max(0, Math.ceil(f.hp)) + '/' + f.maxHp;
-      val.style.cssText = 'flex:0 0 62px;text-align:right;color:' + (f.alive ? '#8fa0b3' : '#2b3543') + ';';
+      val.style.cssText = 'flex:0 0 62px;text-align:right;color:' + (f.alive ? '#9a9a9a' : '#444444') + ';';
 
       row.appendChild(name);
       row.appendChild(track);
