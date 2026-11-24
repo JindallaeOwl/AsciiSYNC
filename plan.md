@@ -4,13 +4,9 @@
 
 ## 현재 상태
 - **진행 단계:** PROJECT.md에 적힌 기능이 코드에 모두 들어가 있는 **다듬기·유지보수 단계**다. 타이틀(ASCII SYNC) → 붕괴/커튼 전환 → Swarm 커서 튜토리얼 → 고정 대진 쇼케이스 → 4개 경기 모드·스킬·클리어 연출까지 흐름이 끝까지 구현돼 있다. JS 11개 모두 `node --check` 문법 검사를 통과했고, 코드 안에 `TODO`/`FIXME`/디버그 `console.log`는 없다. 브라우저 실행 확인은 아직 하지 않았다.
-- **작업 중인 세션과 파일:** 지금 작업 중인 세션은 없다.
-  - 작업을 시작할 때 이 칸에 `세션: 작업 — 파일`을 한 줄 적고, 끝나면 지운다. 줄이 남아 있으면 그 작업이 중간에 끊겼다는 뜻이다.
-  - 세션 역할(자세한 내용은 `.claude/agents/`). 동시에 돌리지 않고 맞는 세션을 골라 쓴다.
-    - **Opus:** 기획·설계, 여러 파일이 맞물린 수정, 연출·타이밍·물리·"느낌", 최적화, 대규모 리팩토링, 핵심 파일 변경 검수, Sonnet이 두 번 실패한 작업
-    - **Sonnet:** 한 파일 안의 분명한 수정·버그 수정, Opus가 단계까지 정해 둔 작업 적용
-    - **Haiku:** 질문·코드 위치 찾기, 문법 검사, 문구·수치 한 줄 수정, 밀린 문서 반영
-    - 문서 반영은 변경한 세션이 직접 한다. 이미 밀려 있는 문서 항목만 Haiku가 처리한다.
+- **작업 중인 작업과 파일:** 지금 진행 중인 작업은 없다.
+  - 작업을 시작할 때 이 칸에 `작업 — 파일`을 한 줄 적고, 끝나면 지운다. 줄이 남아 있으면 그 작업이 중간에 끊겼다는 뜻이다.
+  - 작업 방식은 `CLAUDE.md`를 따른다: Opus 한 세션이 모두 맡고, 작업마다 `/clear` 한다. 사용량이 빠듯할 때만 Sonnet으로 바꾼다.
 - **수정된 파일 목록:** 기준 저장소는 git `main` 브랜치에 커밋이 있다. 변경 이력은 `git log`로 보고, 아직 커밋하지 않은 변경은 `git status`로 본다.
   - 아래 세 사본은 이 폴더와 **내용이 같다**: `d:\Owl` 루트의 `PROJECT.md`·`index.html`·`js/`·`css/`·`docs/`, `d:\Owl\AsciiSYNC-main`(빈 `README.md` 1개만 더 있음), `d:\Owl\Ascii_SYNC.zip`.
   - 파동장 최적화(2026-11-24): `js/ascii.js`(파동장 오프스크린 레이어 + 30Hz 재그리기, 클립 제거, `setLite`(저사양이면 파동장 생략)·`WAVE.stepMs`), `js/script.js`(저사양 모드: L 키·`?lite=1`·자동 감지). 헤드리스 측정에서 경기 중 약 10fps → 60fps.
@@ -18,12 +14,13 @@
   - 파동장 레이어 복사(2026-11-24): `js/ascii.js` `blitWaves` — 평소엔 여백 네 곳만 1:1 픽셀로 복사, 화면 흔들림 중엔 예전처럼 전체 복사. 전체 복사와 픽셀 비교 시 6개 환경 중 5개 완전 일치(분수 DPR×분수 크기인 1537×911@1.25에서만 약 0.02% 픽셀이 최대 27 차이, 기존 쪽이 1px 미만 재표본된 경우).
   - 셰이딩 아트 시제품(2026-11-24): `js/shade.js`(신규, 굽기), `js/fighters.js`(`WBF.ART` BLADE 원본), `js/ascii.js`(글리프 8개 추가, `bodyShaded`·`shadeFor`·검기 잔상 분기, 레이아웃 시 캐시 폐기), `js/script.js`(`K` 토글), `index.html`(스크립트 추가), PROJECT.md 반영.
   - 타이틀 배경 지우기 픽셀 정렬(2026-11-24): `js/title.js` 증분 지우기 사각형을 dpr 격자에 맞춤(소수 배율에서 이웃 글자 가장자리 깎임 방지). 저사양 주석 정리(`js/script.js`), PROJECT.md 동기화.
-  - 이후 추가한 파일: `plan.md`, `package.json`, `dev-server.js`(`npm.cmd run dev`), `.gitignore`, `.claude/agents/`(세션 역할 3개).  - 기준 저장소는 `D:\Owl\Ascii_SYNC`이고 GitHub `JindallaeOwl/AsciiSYNC`의 `main`과 연결돼 있다. 상위 폴더의 다른 사본은 쓰지 않는다.
+  - 이후 추가한 파일: `plan.md`, `package.json`, `dev-server.js`(`npm.cmd run dev`), `.gitignore`, `CLAUDE.md`(작업 방식·규칙). 세션 역할 3분할(`.claude/agents/`)은 2026-11-24에 없앴다.
+  - 기준 저장소는 `D:\Owl\Ascii_SYNC`이고 GitHub `JindallaeOwl/AsciiSYNC`의 `main`과 연결돼 있다. 상위 폴더의 다른 사본은 쓰지 않는다.
 - **다음 할 일:**
   1. `사용자:` 셰이딩 아트 시제품 확인 — `npm.cmd run dev` → 쇼케이스에서 BLADE를 보며 `K`로 기존 방식과 비교 (「진행 중인 설계」 4번)
-  2. `Sonnet:` 가루 효과 모션 최소화 대응 — `css/style.css` (「진행 중인 설계」 1번)
-  3. `Opus:` 리뷰 — js/ascii.js `drawWaves`/`paintWaves`. 남은 큰 비용인 본체 셀 `drawImage`(`flush`)를 더 줄일 구조(변한 칸만 그리기 등)도 검토
-  4. `Opus:` 가루 효과 재사용 구조를 어떻게 공개할지 결정 — `js/swarm.js` (「진행 중인 설계」 2번)
+  2. 가루 효과 모션 최소화 대응 — `css/style.css` (「진행 중인 설계」 1번)
+  3. 리뷰 — js/ascii.js `drawWaves`/`paintWaves`. 남은 큰 비용인 본체 셀 `drawImage`(`flush`)를 더 줄일 구조(변한 칸만 그리기 등)도 검토
+  4. 가루 효과 재사용 구조를 어떻게 공개할지 결정 — `js/swarm.js` (「진행 중인 설계」 2번)
   5. `사용자:` `npm.cmd run dev`로 전체 흐름(타이틀 → 튜토리얼 → 쇼케이스 → 모드 전환)과 프레임 확인 (「진행 중인 설계」 3번)
 
 ## 프로젝트 요약
