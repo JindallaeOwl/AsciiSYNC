@@ -217,10 +217,15 @@ window.WBF = window.WBF || {};
 
     var total = list.length;
     var entry, f, ang, sx, sy, sp0, launch;
+    /* fixedSpawn(튜토리얼 쇼케이스)이면 예전처럼 늘 같은 자리·같은 각도로 시작한다.
+       아니면 공정함(중심에서 같은 거리·같은 간격)은 지키고 회전·자리 배정·발사 각도만 바꾼다. */
+    var fixed = !!config.fixedSpawn;
+    if (!fixed) list = this.spawnOrder(list);
 
     if (this.mode === 'boss') {
-      /* 보스는 좌측 중앙, 사냥꾼은 우측 세로 배치 후 보스를 향해 발사 */
+      /* 보스는 한쪽 중앙, 사냥꾼은 반대쪽 세로 배치 후 보스를 향해 발사(무작위면 좌우를 뒤집기도 한다) */
       var hi = 0;
+      var flip = !fixed && Math.random() < 0.5;
       for (i = 0; i < total; i++) {
         entry = list[i];
         if (entry.team === 0) {
@@ -233,6 +238,7 @@ window.WBF = window.WBF || {};
           ang = Math.PI;
           hi++;
         }
+        if (flip) { sx = W - sx; ang = Math.PI - ang; }
         f = this.createFighter(entry.type, entry.team, sx, sy, this.stats, false, entry.opts);
         f.heading = ang;
         sp0 = (f.cruise || 10) * 1.05;
@@ -242,20 +248,52 @@ window.WBF = window.WBF || {};
       /* 외곽 균등 배치 + 서로 다른 대각선 발사(초반 엉킴 방지) */
       var rx = W * 0.34;
       var ry = H * 0.34;
+      var rot = fixed ? 0 : Math.random() * TAU;
       for (i = 0; i < total; i++) {
         entry = list[i];
-        ang = -Math.PI / 2 + (TAU / Math.max(1, total)) * i;
+        ang = -Math.PI / 2 + rot + (TAU / Math.max(1, total)) * i;
         var teamId = this.teamMode ? entry.team : i;
         sx = W / 2 + Math.cos(ang) * rx;
         sy = H / 2 + Math.sin(ang) * ry;
         f = this.createFighter(entry.type, teamId, sx, sy, this.stats, false, entry.opts);
         var side = i % 2 === 0 ? 1 : -1;
         launch = ang + Math.PI + side * (0.42 + (i % 3) * 0.16);
+        if (!fixed) launch += (Math.random() - 0.5) * 0.24;   /* ±약 7도 */
         f.heading = launch;
         sp0 = (f.cruise || 10) * 1.15;
         Matter.Body.setVelocity(f.body, { x: Math.cos(launch) * sp0, y: Math.sin(launch) * sp0 });
       }
     }
+  };
+
+  /* 무작위 시작용 자리 순서. 개인전은 전체를 섞고, 팀 모드는 팀 안에서 섞은 뒤
+     팀을 번갈아 놓아 같은 팀이 타원 한쪽에 몰리지 않게 한다. 경기 시작 때 한 번만 부른다. */
+  Game.prototype.spawnOrder = function (list) {
+    function shuffle(a) {
+      for (var k = a.length - 1; k > 0; k--) {
+        var r = Math.floor(Math.random() * (k + 1));
+        var tmp = a[k]; a[k] = a[r]; a[r] = tmp;
+      }
+      return a;
+    }
+    if (!this.teamMode || this.mode === 'boss') return shuffle(list.slice());
+    var groups = {};
+    var keys = [];
+    for (var i = 0; i < list.length; i++) {
+      var key = list[i].team;
+      if (!groups[key]) { groups[key] = []; keys.push(key); }
+      groups[key].push(list[i]);
+    }
+    shuffle(keys);
+    for (i = 0; i < keys.length; i++) shuffle(groups[keys[i]]);
+    var out = [];
+    for (var round = 0; out.length < list.length; round++) {
+      for (i = 0; i < keys.length; i++) {
+        var g = groups[keys[i]];
+        if (round < g.length) out.push(g[round]);
+      }
+    }
+    return out;
   };
 
   Game.prototype.createFighter = function (type, teamId, x, y, stats, isChild, opts) {

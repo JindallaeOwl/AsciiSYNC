@@ -2,7 +2,7 @@
    경기를 대기 상태로 세워 두고 커서 3기(GUIDE · SCOUT · SYSTEM)가
    경기장 → 상태 바 → 설정 터미널 머리 → 설정 줄 → 스크롤 바 드래그 → 매치업 빌더 →
    적용 줄 → 키·제한 줄 → 로그 패널 → FPS 토글 → 체력·게이지 순으로 드래그 선택하며 설명하고,
-   마지막에 고정 대진(BLADE x1 vs RAILGUN x1) 시뮬레이션을 시작해 중계·해설한 뒤 흩어진다.
+   마지막에 고정 대진 3종(SHOWCASES) 중 하나로 시뮬레이션을 시작해 중계·해설한 뒤 흩어진다.
    선택·클릭 연출은 보여 주기만 하며 실제 설정을 바꾸지 않는다(예외: 해설 중 배속 시연).
    Esc를 누르면 즉시 건너뛰고 그 자리에서 경기가 시작된다. */
 window.WBF = window.WBF || {};
@@ -22,32 +22,68 @@ WBF.Tutorial = (function () {
      예전 모션이 그리우면 이 값만 'bounce'로 바꾸면 그대로 되돌아간다. */
   var STAGE_MOTION = 'flash';
 
+  /* 튜토리얼 쇼케이스 대진 — 안내가 시작될 때 하나를 고른다. 자리·발사 각도는 늘 같다(fixedSpawn).
+     start: 경기 시작 직전 한 줄, note: 이 대진에서 눈여겨볼 점(해설 세 번째 줄). */
+  var SHOWCASES = [
+    {
+      ids: ['blade', 'railgun'],
+      ko: {
+        start: '시연 경기를 시작합니다. 블레이드 대 레일건.',
+        note: '레일건은 스킬을 쓰면 3초 동안 거의 멈춰 조준한 뒤, 직선상의 적을 모두 꿰뚫는 레이저를 쏩니다.'
+      },
+      en: {
+        start: 'Starting the demo match: BLADE vs RAILGUN.',
+        note: 'RAILGUN\'s skill holds it nearly still for 3 seconds to aim, then fires a laser through everything in line.'
+      }
+    },
+    {
+      ids: ['railgun', 'splitter'],
+      ko: {
+        start: '시연 경기를 시작합니다. 레일건 대 스플리터.',
+        note: '스플리터는 체력이 절반 아래로 떨어지면 둘로 갈라집니다. 스킬은 사방으로 꺾여 나가는 자탄 9발입니다.'
+      },
+      en: {
+        start: 'Starting the demo match: RAILGUN vs SPLITTER.',
+        note: 'SPLITTER breaks in two below half HP. Its skill sprays 9 erratic shards in every direction.'
+      }
+    },
+    {
+      ids: ['juggernaut', 'blade'],
+      ko: {
+        start: '시연 경기를 시작합니다. 저거넛 대 블레이드.',
+        note: '저거넛은 벽에 튕길 때마다 조금씩 커집니다. 블레이드의 스킬은 주변을 한 바퀴 베는 회전 베기입니다.'
+      },
+      en: {
+        start: 'Starting the demo match: JUGGERNAUT vs BLADE.',
+        note: 'JUGGERNAUT grows a little with every wall bounce. BLADE\'s skill is a full-circle spin slash.'
+      }
+    }
+  ];
+
   var TEXT = {
     ko: {
       guide: 'GUIDE', scout: 'SCOUT', sys: 'SYSTEM',
-      intro: '조작 없이 자동으로 싸우는 관전 시뮬레이션입니다. 세 커서가 화면을 짚어 드릴게요.',
-      whisper: '(ESC를 누르면 튜토리얼을 스킵할 수 있어요!)',
-      arena: '경기장은 16:9. 파이터는 핀볼처럼 벽에 튕기며 스스로 싸웁니다.',
-      status: '상태 바에는 살아 있는 팀 수와 경기 종료까지 남은 시간이 흐릅니다.',
-      head: '설정은 이 터미널에서 클릭으로 바로 바꿉니다. 지금은 경기가 대기 상태입니다.',
-      action: '동작 줄은 실행·일시정지·리셋, 배속은 0.5~5배입니다. 배속은 원하는 값을 바로 클릭하면 됩니다.',
-      cell: '글자_크기는 아스키 밀도, 소리는 효과음 켜기/끄기입니다.',
-      spawn: '출전_파이터 수 · 경기_모드 · 렌더_모드 · 프레임_모드를 한 묶음으로 봐 주세요.',
-      scroll: '아래 설정은 스크롤 바 썸을 잡아 내려야 보입니다. 이렇게 끌면 됩니다.',
-      builder: '매치업 빌더에서 파이터 수를 직접 짜고, 팀 모드·화면 흔들림을 켜고 끕니다.',
-      apply: '초기화/적용을 누르면 지금 대진 그대로 새 경기가 시작됩니다.',
-      keys: '키 안내와 경기 제한. 30초가 지나면 벽이 좁혀지는 서든 데스가 시작됩니다.',
-      log: '오른쪽은 실시간 전투 로그. 타격·스킬·체력 변화가 계속 쌓입니다.',
-      fps: '화면 갱신은 30 / 60 중에 고릅니다. 물리 판정은 1/60초 고정이라 결과는 같아요.',
-      units: '이 줄이 파이터별 체력과 스킬 게이지입니다. 게이지가 차면 충돌 순간 스킬이 터집니다.',
-      start: '그럼 이제 진짜 경기를 시작합니다. BLADE 대 RAILGUN!',
-      c1: '경기 시작! 벽에 튕길 때마다 스킬 게이지가 더 빨리 찹니다.',
-      c2: '게이지가 가득 차면 다음 충돌에서 고유 스킬이 나갑니다.',
-      c3: '레일건은 충전을 시작하면 3초 동안 거의 멈춰 서서 조준합니다.',
-      speedUse: '앞에서 본 배속을 여기서 써 보겠습니다. 0.5배로 낮추면 스킬 충전 장면을 천천히 볼 수 있어요.',
-      slowWatch: '어때요? 이렇게 보면 스킬이 차오르는 장면이 훨씬 세밀하게 보이죠?',
-      speedBack: '좋습니다. 배속은 다시 1배로 돌려 두겠습니다.',
-      c4: '즐겁게 관전하세요. 설정은 언제든 클릭 한 번으로 바꿀 수 있습니다!',
+      intro: '조작 없이 파이터끼리 싸우는 관전 시뮬레이션입니다. 화면 구성을 차례로 짚겠습니다.',
+      whisper: '(Esc: 튜토리얼 건너뛰기)',
+      arena: '경기장입니다. 파이터는 벽에 튕기며 스스로 움직이고, 부딪히면 서로 피해를 줍니다.',
+      status: '상태 바에는 남은 팀 수와 경기 종료까지 남은 시간이 표시됩니다.',
+      head: '설정 패널입니다. 값을 클릭하면 바로 바뀝니다. 지금은 경기가 대기 중입니다.',
+      action: '동작 줄은 실행·일시정지·리셋, 배속 줄은 0.5~5배입니다. 배속은 원하는 값을 직접 누릅니다.',
+      cell: '글자_크기는 화면을 이루는 글자 크기, 소리는 효과음 켜기/끄기입니다.',
+      spawn: '출전 파이터 수, 경기 모드, 렌더 방식, 화면 갱신 빈도를 여기서 정합니다.',
+      scroll: '나머지 설정은 아래에 있습니다. 스크롤 바를 끌어 내립니다.',
+      builder: '매치업 빌더에서는 클래스별 출전 수를 직접 정하고, 팀 모드와 화면 흔들림을 켜고 끕니다.',
+      apply: '초기화/적용을 누르면 지금 대진으로 새 경기가 시작됩니다.',
+      keys: '단축키와 경기 제한 시간입니다. 30초가 지나면 벽이 좁혀지는 서든 데스가 시작됩니다.',
+      log: '전투 로그입니다. 타격, 스킬, 탈락이 시간 순서로 쌓입니다.',
+      fps: '화면 갱신은 30 또는 60입니다. 물리 계산은 1/60초 고정이라 결과는 같습니다.',
+      units: '파이터별 체력과 스킬 게이지입니다.',
+      c1: '스킬 게이지는 시간이 지나거나, 적을 맞히거나, 벽에 튕길 때 찹니다.',
+      c2: '게이지가 가득 찬 상태로 적과 부딪히면 클래스 고유 스킬이 발동합니다.',
+      speedUse: '배속을 0.5배로 낮춰 보겠습니다.',
+      slowWatch: '느리게 보면 충돌과 스킬이 터지는 순간을 따라가기 쉽습니다.',
+      speedBack: '배속을 1배로 되돌립니다.',
+      c4: '안내는 여기까지입니다. 설정은 경기 중에도 바꿀 수 있습니다.',
       L_arena: '경기장',
       L_status: '상태 바',
       L_head: '설정',
@@ -64,29 +100,27 @@ WBF.Tutorial = (function () {
     },
     en: {
       guide: 'GUIDE', scout: 'SCOUT', sys: 'SYSTEM',
-      intro: 'A spectator sim — the fighters move on their own. These cursors will point things out.',
-      whisper: '(Press ESC to skip the tutorial!)',
-      arena: 'The arena is 16:9. Fighters ricochet off walls like pinballs and fight by themselves.',
-      status: 'The status bar shows surviving teams and the time left in the match.',
-      head: 'Every setting is clicked right here in this terminal. The match is on standby now.',
-      action: 'ACTION cycles run / pause / reset, SIM_SPEED goes 0.5-5x. Each click steps to the next value.',
-      cell: 'ASCII_CELL_PX sets glyph density, SOUND_FX toggles the synth effects.',
-      spawn: 'SPAWN_FIGHTERS · GAME_MODE · RENDER_MODE · FPS_MODE — read them as one block.',
-      scroll: 'The rest of the settings sit below. Drag the scroll thumb like this to reach them.',
-      builder: 'MATCHUP_BUILDER sets fighter counts by hand and toggles TEAM_MODE and SHAKE.',
-      apply: '[RESET / APPLY] starts a fresh match with the matchup you built.',
-      keys: 'Key hints and MATCH_LIMIT. At 30s the walls close in — sudden death.',
-      log: 'This is the live combat log. Hits, skills and HP changes pile up here.',
-      fps: 'Pick 30 or 60 redraws per second. Physics stays on a fixed 1/60 step either way.',
-      units: 'HP and skill gauge per fighter. Once the gauge fills, the class skill fires on collision.',
-      start: 'Time for the real match. BLADE versus RAILGUN!',
-      c1: 'Match on! Every wall bounce charges the skill gauge faster.',
-      c2: 'When the gauge is full, the next collision fires the class skill.',
-      c3: 'Once RAILGUN starts charging it nearly stops for 3 seconds to line up the shot.',
-      speedUse: 'Here is the speed setting from earlier. Dropping it to 0.5x lets us watch the charge-up slowly.',
-      slowWatch: 'See? At 0.5x the charge-up is far easier to follow in detail.',
-      speedBack: 'Good — putting the speed back to 1x.',
-      c4: 'Enjoy the show — every setting is one click away!',
+      intro: 'A spectator sim: the fighters fight on their own. We will walk through the screen.',
+      whisper: '(Esc: skip tutorial)',
+      arena: 'The arena. Fighters bounce off the walls on their own and damage each other on contact.',
+      status: 'The status bar shows teams remaining and time left in the match.',
+      head: 'The settings panel. Click a value to change it. The match is on standby.',
+      action: 'ACTION runs, pauses or resets. SIM_SPEED is 0.5-5x; click the value you want.',
+      cell: 'ASCII_CELL_PX sets the glyph size; SOUND_FX turns sound effects on or off.',
+      spawn: 'Fighter counts, game mode, render mode and refresh rate are set here.',
+      scroll: 'The rest of the settings are further down. Dragging the scroll bar.',
+      builder: 'MATCHUP_BUILDER sets how many of each class enter, and toggles TEAM_MODE and SHAKE.',
+      apply: '[RESET / APPLY] starts a new match with the current matchup.',
+      keys: 'Shortcuts and the match time limit. After 30s the walls close in: sudden death.',
+      log: 'The combat log. Hits, skills and eliminations are listed in order.',
+      fps: 'Redraw at 30 or 60 per second. Physics runs on a fixed 1/60s step either way.',
+      units: 'HP and skill gauge for each fighter.',
+      c1: 'The skill gauge fills over time, on hits, and on wall bounces.',
+      c2: 'A fighter with a full gauge fires its class skill when it collides with an enemy.',
+      speedUse: 'Dropping the speed to 0.5x.',
+      slowWatch: 'At low speed, collisions and skill triggers are easier to follow.',
+      speedBack: 'Speed back to 1x.',
+      c4: 'That is the tour. Settings can be changed during a match too.',
       L_arena: 'ARENA',
       L_status: 'STATUS BAR',
       L_head: 'SETTINGS',
@@ -130,8 +164,11 @@ WBF.Tutorial = (function () {
     sw = swc;
     var dead = false;
     var lastSpeaker = 'guide';   /* 바로 앞에서 설명을 마친 커서 — 스크롤이 필요할 때 썸을 잡는다 */
+    /* 이번 안내의 쇼케이스 대진(건너뛰어도 같은 대진으로 시작한다) */
+    var show = SHOWCASES[Math.floor(Math.random() * SHOWCASES.length)];
 
     function T() { return TEXT[currentLang()] || TEXT.ko; }
+    function S() { return show[currentLang()] || show.ko; }
     function alive() { return !dead && my === token && sw === swc; }
 
     function wait(ms) {
@@ -166,7 +203,7 @@ WBF.Tutorial = (function () {
     }
 
     function startShowcase() {
-      if (WBF.App && WBF.App.playShowcase) WBF.App.playShowcase();
+      if (WBF.App && WBF.App.playShowcase) WBF.App.playShowcase(show.ids);
     }
 
     function skip() {
@@ -449,7 +486,7 @@ WBF.Tutorial = (function () {
       }
 
       /* ⑮ 고정 대진 시뮬레이션 시작 */
-      if (!await explain({ id: 'guide', text: T().start, ms: 2400 })) return;
+      if (!await explain({ id: 'guide', text: S().start, ms: 2400 })) return;
       swc.hideBox();
       startShowcase();
 
@@ -463,7 +500,7 @@ WBF.Tutorial = (function () {
 
       if (!await explain({ id: 'guide', text: T().c1, ms: 2800 })) return;
       if (!await explain({ id: 'scout', text: T().c2, ms: 2600 })) return;
-      if (!await explain({ id: 'sys', text: T().c3, ms: 2600 })) return;
+      if (!await explain({ id: 'sys', text: S().note, ms: 3600 })) return;
 
       /* ⑰ 스크롤을 다시 위로 — GUIDE가 말없이 썸을 끌어 배속 줄을 보이는 자리에 둔다 */
       if (codeEl && alive()) {

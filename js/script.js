@@ -148,7 +148,8 @@
     };
   }
 
-  function startMatch() {
+  /* fixedSpawn: 튜토리얼 쇼케이스처럼 늘 같은 자리에서 시작해야 할 때만 true */
+  function startMatch(fixedSpawn) {
     if (totalUnits() === 0) {
       pushLog('ERR: NO_UNIT_SELECTED // SPAWN_FIGHTERS 조정 필요', 'warn');
       return;
@@ -156,7 +157,9 @@
     WBF.Audio.setMuted(!soundOn);
     WBF.Audio.resume();
     acc = 0;
-    game.setup(buildConfig());
+    var cfg = buildConfig();
+    cfg.fixedSpawn = fixedSpawn === true;
+    game.setup(cfg);
     game.start();
     actionIdx = 0;
     pushLog('SIM_START // UNITS=' + totalUnits() + ' // SPEED=' + speed + 'x', 'sys');
@@ -1072,15 +1075,24 @@
       return true;
     },
     speed: function () { return speed; },
-    /* 튜토리얼용 고정 대진 — BLADE x1 vs RAILGUN x1 */
-    playShowcase: function () {
+    /* 튜토리얼용 고정 대진 — ids는 1기씩 내보낼 클래스 두 개(예: ['blade', 'railgun']).
+       쇼케이스는 늘 같은 자리·같은 발사 각도로 시작한다(fixedSpawn). */
+    playShowcase: function (ids) {
       if (game.running && !game.finished) return;
+      if (!ids || ids.length < 2) ids = ['blade', 'railgun'];
       gameMode = '1V1_DUEL';
       teamMode = false;
       game.teamMode = false;
-      setCounts({ blade: 1, railgun: 1, juggernaut: 0, splitter: 0 });
-      pushLog('TUTORIAL_MATCH // BLADE x1 vs RAILGUN x1', 'sys');
-      startMatch();
+      var c = { blade: 0, railgun: 0, juggernaut: 0, splitter: 0 };
+      var tags = [];
+      for (var i = 0; i < ids.length; i++) {
+        c[ids[i]] = 1;
+        var ty = WBF.getType(ids[i]);
+        tags.push((ty ? ty.tag : ids[i].toUpperCase()) + ' x1');
+      }
+      setCounts(c);
+      pushLog('TUTORIAL_MATCH // ' + tags.join(' vs '), 'sys');
+      startMatch(true);
     }
   };
 
