@@ -193,7 +193,16 @@
     refresh();
   }
 
+  /* 튜토리얼 안내 중(쇼케이스 해설 포함)에는 대진·경기 진행을 바꾸는 설정을 잠근다 — 안내가 경기를 쥐고 있다.
+     잠겼으면 경고 로그를 남기고 true. 배속·글자 크기·소리·렌더·FPS처럼 경기를 다시 시작하지 않는 설정은 잠그지 않는다. */
+  function tutorialLocked(what) {
+    if (!(WBF.Tutorial && WBF.Tutorial.isActive())) return false;
+    pushLog('ERR: ' + what + ' locked during tutorial // Esc to skip', 'warn');
+    return true;
+  }
+
   function cycleAction() {
+    if (tutorialLocked('ACTION')) return;
     actionIdx = (actionIdx + 1) % ACTIONS.length;
     if (actionIdx === 0) startMatch();
     else if (actionIdx === 1) togglePause();
@@ -264,6 +273,7 @@
   }
 
   function bumpCount(id, delta) {
+    if (tutorialLocked('SPAWN_FIGHTERS')) return;
     var next = Math.max(0, Math.min(4, (counts[id] || 0) + delta));
     if (next === counts[id]) return;
     if (delta < 0 && totalUnits() <= 1) {
@@ -293,6 +303,7 @@
   }
 
   function applyMatchup(tag) {
+    if (tutorialLocked('RESET / APPLY')) return;
     if (totalUnits() === 0) {
       pushLog('ERR: MATCHUP_EMPTY // 최소 1기 필요', 'warn');
       refresh();
@@ -344,17 +355,14 @@
 
   /* 모드 설정 + 즉시 새 경기 시작 */
   function applyMode(mode) {
-    /* 튜토리얼 안내 중(쇼케이스 해설 포함)에는 경기 모드를 바꾸지 않는다 — 안내가 대진을 쥐고 있다 */
-    if (WBF.Tutorial && WBF.Tutorial.isActive()) {
-      pushLog('ERR: GAME_MODE locked during tutorial // Esc to skip', 'warn');
-      return;
-    }
+    if (tutorialLocked('GAME_MODE')) return;
     configureMode(mode);
     pushLog('GAME_MODE = ' + mode + ' // ' + matchupSummary(), 'sys');
     startMatch();
   }
 
   function toggleTeamMode() {
+    if (tutorialLocked('TEAM_MODE')) return;
     if (gameMode === 'BOSS_RAID') {
       pushLog('ERR: BOSS_RAID_FIXED_TEAMS // TEAM_MODE 잠금', 'warn');
       return;
