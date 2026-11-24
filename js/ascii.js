@@ -134,6 +134,13 @@ WBF.Ascii = (function () {
     this.shadeCache = {};
     this.shadeTab = null;
 
+    /* 시인성: 밝기 위계(장식 이펙트를 배경 쪽으로 누름) + 파이터 주변 1칸 녹아웃. V 키로 비교 */
+    this.vis = !/[?&]vis=0(&|$)/.test(window.location.search);
+    this.markOn = false;
+    this.cbMark = new Uint8Array(1);
+    this.markList = new Int32Array(1);
+    this.markN = 0;
+
     /* 배경 클릭 리플 — 여백 파동장에 부호 있는 파면을 더한다 */
     var self = this;
     this.ripples = [];
@@ -208,6 +215,10 @@ WBF.Ascii = (function () {
     this.cbG = new Uint8Array(t);
     this.cbB = new Uint8Array(t);
     this.cbGlow = new Uint8Array(t);
+    /* 녹아웃용: 이번 프레임 파이터 실루엣이 차지한 칸 표시 + 그 칸 목록(지울 때 목록만 훑는다) */
+    this.cbMark = new Uint8Array(t);
+    this.markList = new Int32Array(t);
+    this.markN = 0;
     /* 셀 변위(충격파 왜곡)용 스크래치: 매 프레임 새로 만들지 않고 .set()으로만 채운다 */
     this.scGi = new Int16Array(t);
     this.scPrio = new Int8Array(t);
@@ -277,8 +288,27 @@ WBF.Ascii = (function () {
     var key = (kr << 8) | (kg << 4) | kb;
     var row = this.rowMap[key];
     if (row !== undefined) return row;
-    if (this.rowN >= this.ATLAS_ROWS) return -1;
+    if (!this.rowKey || this.rowKey.length < this.ATLAS_ROWS) this.rowKey = new Int16Array(this.ATLAS_ROWS);
+    if (this.rowN >= this.ATLAS_ROWS) {
+      /* 아틀라스가 꽉 차면 글자를 버리지 않고 이미 있는 색 중 가장 가까운 행을 쓴다.
+         (예전에는 -1을 돌려 그 색의 글자가 아예 그려지지 않았다. 셰이딩 아트·감광 이펙트처럼
+         색을 연속으로 만드는 요소가 늘면서 경기 시작 직후 192행이 다 찼다.)
+         새 색이 처음 나올 때 한 번만 찾고 결과를 rowMap에 캐시한다. */
+      var best = 0;
+      var bd = 1e9;
+      for (var i = 0; i < this.rowN; i++) {
+        var k2 = this.rowKey[i];
+        var dr = (k2 >> 8) - kr;
+        var dg = ((k2 >> 4) & 15) - kg;
+        var db = (k2 & 15) - kb;
+        var d = dr * dr * 3 + dg * dg * 4 + db * db * 2;
+        if (d < bd) { bd = d; best = i; }
+      }
+      this.rowMap[key] = best;
+      return best;
+    }
     row = this.addRow(kr, kg, kb);
+    this.rowKey[row] = key;
     this.rowMap[key] = row;
     return row;
   };
@@ -769,6 +799,10 @@ WBF.Ascii = (function () {
   Renderer.prototype.clearCells = function () {
     this.cbPrio.fill(EMPTY);
     this.cbGlow.fill(0);
+    var ml = this.markList;
+    var mk = this.cbMark;
+    for (var i = 0; i < this.markN; i++) mk[ml[i]] = 0;
+    this.markN = 0;
   };
 
   /* 한 칸에는 우선순위가 가장 높은 문자 하나만 남는다 */
@@ -776,6 +810,10 @@ WBF.Ascii = (function () {
     if (!gi) return;
     if (cx < 0 || cy < 0 || cx >= this.cols || cy >= this.rows) return;
     var q = cy * this.cols + cx;
+    if (this.markOn && !this.cbMark[q]) {
+      this.cbMark[q] = 1;
+      this.markList[this.markN++] = q;
+    }
     if (prio <= this.cbPrio[q]) return;
     this.cbPrio[q] = prio;
     this.cbGi[q] = gi;
@@ -797,6 +835,46 @@ WBF.Ascii = (function () {
     if (!gi) return;
     var cc = rgb(color && color.charAt && color.charAt(0) === '#' ? color : '#ffffff');
     this.occupy(wx, wy, gi, prio === undefined ? P_ENERGY : prio, cc.r, cc.g, cc.b, glow);
+  };
+
+  /* 밝기 위계: 장식 이펙트(잔열·잔상·연기·파편·링)는 색을 배경(#050507) 쪽으로 눌러
+     파이터 본체보다 어둡게 둔다. k = 남길 밝기 비율. vis가 꺼져 있으면 원래 색 그대로다. */
+  Renderer.prototype.pushDecoDim = function (ch, wx, wy, color, k, prio) {
+    var gi = GIDX[ch];
+    if (!gi) return;
+    var cc = rgb(color && color.charAt && color.charAt(0) === '#' ? color : '#ffffff');
+    if (!this.vis) {
+      this.occupy(wx, wy, gi, prio, cc.r, cc.g, cc.b, 0);
+      return;
+    }
+    this.occupy(wx, wy, gi, prio, 5 + (cc.r - 5) * k, 5 + (cc.g - 5) * k, 7 + (cc.b - 7) * k, 0);
+  };
+
+  /* 녹아웃: 실루엣 칸에 붙은 8이웃 중 장식(P_FILL) 칸을 비워 둘레에 검은 테두리를 만든다.
+     배경이 복잡해도 윤곽이 끊기지 않는다. 프레임(P_FRAME)·본체·에너지 이펙트는 건드리지 않는다. */
+  Renderer.prototype.knockOut = function () {
+    if (!this.vis || !this.markN) return;
+    var cols = this.cols;
+    var rows = this.rows;
+    var mk = this.cbMark;
+    var pr = this.cbPrio;
+    var ml = this.markList;
+    var n = this.markN;
+    for (var i = 0; i < n; i++) {
+      var q = ml[i];
+      var cy = (q / cols) | 0;
+      var cx = q - cy * cols;
+      for (var dy = -1; dy <= 1; dy++) {
+        var yy = cy + dy;
+        if (yy < 0 || yy >= rows) continue;
+        for (var dx = -1; dx <= 1; dx++) {
+          var xx = cx + dx;
+          if (xx < 0 || xx >= cols) continue;
+          var nq = yy * cols + xx;
+          if (!mk[nq] && pr[nq] === P_FILL) pr[nq] = EMPTY;
+        }
+      }
+    }
   };
 
   /* ---------- 파이터 본체(아트 시트 1셀 1문자) ---------- */
@@ -824,7 +902,7 @@ WBF.Ascii = (function () {
     var colOuter = flash ? WHITE : mix(sig, 255, 0.45);
     var colStruct = flash ? WHITE : { r: 236, g: 241, b: 249 };
     var colFill = flash ? WHITE : mix(sig, 96, 0.5);
-    var colFly = flash ? WHITE : mix(sig, 150, 0.35);
+    var colFly = flash ? WHITE : (this.vis ? mix(sig, 70, 0.4) : mix(sig, 150, 0.35));
     if (f.hot && f.typeId === 'juggernaut') {
       /* 과열 가시는 백열 — 글로우 없이 색만 올린다 */
       colOuter = { r: 255, g: 240, b: 190 };
@@ -856,11 +934,14 @@ WBF.Ascii = (function () {
         glow = 0;
       }
 
+      this.markOn = pt.st === 0;
       this.occupy(pos.x + ox, pos.y + oy, gi, prio, col.r, col.g, col.b, glow);
     }
 
     /* 회전 빈틈 보정(역매핑) — 시트가 기울어도 구멍이 뚫리지 않는다 */
+    this.markOn = true;
     this.fillSheetGaps(f, sheet, pos, cw, chh, ca, sa, colFill, colStruct, colOuter);
+    this.markOn = false;
 
   };
 
@@ -868,6 +949,10 @@ WBF.Ascii = (function () {
 
   Renderer.prototype.setArtShade = function (on) {
     this.artShade = !!on;
+  };
+
+  Renderer.prototype.setVis = function (on) {
+    this.vis = !!on;
   };
 
   /* 각도 단계별 구운 시트 — 처음 쓸 때 한 번만 굽는다 */
@@ -892,7 +977,7 @@ WBF.Ascii = (function () {
     var pos = f.body.position;
     var flash = now < f.flashUntil;
     var sig = rgb(f.color);
-    var colFly = flash ? WHITE : mix(sig, 150, 0.35);
+    var colFly = flash ? WHITE : (this.vis ? mix(sig, 70, 0.4) : mix(sig, 150, 0.35));
     for (var i = 0; i < parts.length; i++) {
       var pt = parts[i];
       if (pt.st === 0) continue;
@@ -903,12 +988,14 @@ WBF.Ascii = (function () {
     if (!bk) return;
     var cx0 = Math.floor(pos.x * this.invFw);
     var cy0 = Math.floor(pos.y * this.invFh);
+    this.markOn = true;
     for (var k = 0; k < bk.n; k++) {
       var s = bk.src[k];
       if (s >= 0 && parts[s] && parts[s].st !== 0) continue;
       if (flash) this.occupyC(cx0 + bk.dc[k], cy0 + bk.dr[k], bk.gi[k], bk.prio[k], 255, 255, 255, 0);
       else this.occupyC(cx0 + bk.dc[k], cy0 + bk.dr[k], bk.gi[k], bk.prio[k], bk.r[k], bk.g[k], bk.b[k], 0);
     }
+    this.markOn = false;
   };
 
   /* 셀 중심을 시트 로컬 좌표로 되돌려 가장 가까운 시트 셀을 찾는다 */
@@ -1034,7 +1121,7 @@ WBF.Ascii = (function () {
       for (var ti = 0; ti < tr.length; ti++) {
         var t2 = tr[ti];
         var tk = (ti + 1) / (tr.length + 1);
-        var tc = mix(sig, 26, 0.35 + 0.45 * (1 - tk));
+        var tc = mix(sig, 26, (0.35 + 0.45 * (1 - tk)) * (this.vis ? 0.45 : 1));
         var bk = this.shadeFor(f, t2.a);
         if (!bk) continue;
         var tx0 = Math.floor(t2.x * this.invFw);
@@ -1054,7 +1141,7 @@ WBF.Ascii = (function () {
       var g2 = tr[i];
       var k = (i + 1) / (n + 1);
       /* 뒤로 갈수록 어두운 단색 — 불투명 덧그리기만 사용한다 */
-      var col = mix(sig, 26, 0.35 + 0.45 * (1 - k));
+      var col = mix(sig, 26, (0.35 + 0.45 * (1 - k)) * (this.vis ? 0.45 : 1));
       var ca = Math.cos(g2.a);
       var sa = Math.sin(g2.a);
       for (var c = 0; c < cells.length; c++) {
@@ -1095,14 +1182,14 @@ WBF.Ascii = (function () {
       var w = e.waves[i];
       for (k = 0; k < 10; k++) {
         var a = (k / 10) * Math.PI * 2;
-        this.pushDeco(k % 2 ? '+' : '-', w.x + Math.cos(a) * w.r, w.y + Math.sin(a) * w.r, w.color, 0, P_FILL);
+        this.pushDecoDim(k % 2 ? '+' : '-', w.x + Math.cos(a) * w.r, w.y + Math.sin(a) * w.r, w.color, 0.55, P_FILL);
       }
     }
     for (i = 0; i < e.parts.length; i++) {
       var p = e.parts[i];
       var pr = p.life / p.max;
       var ch = pr > 0.66 ? '+' : (pr > 0.33 ? '-' : '.');
-      this.pushDeco(ch, p.x, p.y, p.color, 0, P_FILL);
+      this.pushDecoDim(ch, p.x, p.y, p.color, 0.5, P_FILL);
     }
     /* 대장장이 스파크: 머리 '*'/'+' 뒤로 방향성 선 문자를 길게 찍어 궤적을 만든다.
        머리·꼬리 모두 P_ENERGY로 본체 위에 얹어 몸통에 묻히지 않게 한다
@@ -1146,7 +1233,7 @@ WBF.Ascii = (function () {
       if (si < 0) si = 0;
       else if (si > smokeRamp.length - 1) si = smokeRamp.length - 1;
       var scol = sl > 0.72 ? '#94a0ae' : (sl > 0.48 ? '#727d8a' : (sl > 0.26 ? '#545d68' : '#3a424c'));
-      this.pushDeco(smokeRamp.charAt(si), sm.x, sm.y, scol, 0, P_FILL);
+      this.pushDecoDim(smokeRamp.charAt(si), sm.x, sm.y, scol, 0.7, P_FILL);
     }
     /* 불씨: 식어 가며 밝은 노랑 → 주황 → 잿빛, 뒤로 한 칸 잔불을 남긴다 */
     /* 글리프 아틀라스에 실제로 있는 문자만 쓴다('x'·따옴표는 아틀라스에 없다) */
@@ -1162,8 +1249,8 @@ WBF.Ascii = (function () {
       if (el2 > 0.42) {
         var ev = Math.sqrt(eb.vx * eb.vx + eb.vy * eb.vy) || 1;
         var ek = this.fw * 0.9;
-        this.pushDeco(emberRamp[ei > 3 ? 3 : ei + 1],
-          eb.x - (eb.vx / ev) * ek, eb.y - (eb.vy / ev) * ek, '#ff9a4a', 0, P_FILL);
+        this.pushDecoDim(emberRamp[ei > 3 ? 3 : ei + 1],
+          eb.x - (eb.vx / ev) * ek, eb.y - (eb.vy / ev) * ek, '#ff9a4a', this.vis ? 0.55 : 1, P_FILL);
       }
     }
     /* 고유 스킬: 충전 관통 레이저 — 코어 + 외곽 2겹 문자 빔, 마디마다 'X' */
@@ -1223,11 +1310,13 @@ WBF.Ascii = (function () {
         }
       }
     }
+    /* 무기 잔열 궤적: 가장 많이 깔리는 장식이라 가장 어둡게 두고 수명에 따라 더 옅어진다 */
     for (i = 0; i < e.segs.length; i++) {
       var s = e.segs[i];
+      var sk = 0.22 + 0.26 * (s.life / s.max);
       for (k = 1; k <= 4; k++) {
         var t = k / 4;
-        this.pushDeco(t > 0.5 ? '-' : '=', s.x1 + (s.x2 - s.x1) * t, s.y1 + (s.y2 - s.y1) * t, s.color, 0, P_FILL);
+        this.pushDecoDim(t > 0.5 ? '-' : '=', s.x1 + (s.x2 - s.x1) * t, s.y1 + (s.y2 - s.y1) * t, s.color, sk, P_FILL);
       }
     }
   };
@@ -1395,6 +1484,8 @@ WBF.Ascii = (function () {
       if (f.alive) this.body(f, now);
     }
     this.fx(g, now);
+    /* 시인성: 실루엣 둘레 1칸의 장식 문자를 비운다(이펙트까지 다 찍은 뒤) */
+    this.knockOut();
     /* 클리어 연출: 계단식 충격파 링 → 링이 지나간 셀 변위·글리치 */
     this.finishWave(g, now);
     this.finishDistort(g, now);
