@@ -344,6 +344,11 @@
 
   /* 모드 설정 + 즉시 새 경기 시작 */
   function applyMode(mode) {
+    /* 튜토리얼 안내 중(쇼케이스 해설 포함)에는 경기 모드를 바꾸지 않는다 — 안내가 대진을 쥐고 있다 */
+    if (WBF.Tutorial && WBF.Tutorial.isActive()) {
+      pushLog('ERR: GAME_MODE locked during tutorial // Esc to skip', 'warn');
+      return;
+    }
     configureMode(mode);
     pushLog('GAME_MODE = ' + mode + ' // ' + matchupSummary(), 'sys');
     startMatch();
