@@ -267,7 +267,14 @@ WBF.Title = (function () {
   function playLogo() {
     if (logoPlayed) return;
     logoPlayed = true;
-    if (hasAudio()) WBF.Audio.logo();
+    if (!hasAudio()) return;
+    WBF.Audio.logo();
+    /* 로고 착지 뒤 시작 문구를 기다리는 동안 아주 작은 타이틀 드론을 깐다(시작하면 끈다) */
+    if (WBF.Audio.ambience) {
+      setTimeout(function () {
+        if (!started) WBF.Audio.ambience(3);
+      }, 2400);
+    }
   }
 
   /* ---------- 글리프(문자) 그리기 ---------- */
@@ -1066,6 +1073,8 @@ WBF.Title = (function () {
     rev.on = true;
     rev.p = 0;
     rev.t0 = now;
+    /* 커튼이 걷히며 게임 화면이 드러나는 소리 */
+    if (hasAudio() && WBF.Audio.reveal) WBF.Audio.reveal();
     /* 남은 블록이 게임 화면을 덮도록 레이어의 불투명 배경을 뺀다 */
     if (layer) layer.style.background = 'transparent';
   }
@@ -1145,7 +1154,12 @@ WBF.Title = (function () {
     started = true;
     layer.style.pointerEvents = 'none';
     /* 시작 클릭으로 로고 코드를 다시 울리지 않는다(저역 '우웅' 소리 제거) */
-    if (hasAudio()) WBF.Audio.confirm(0.18);
+    if (hasAudio()) {
+      WBF.Audio.confirm(0.18);
+      /* 확인음 뒤 화면이 흩어지는 붕괴 전환음, 타이틀 드론은 끈다 */
+      if (WBF.Audio.titleOut) WBF.Audio.titleOut();
+      if (WBF.Audio.ambience) WBF.Audio.ambience(0);
+    }
     if (onStart) onStart();
     /* CSS 페이드아웃 대신, 화면의 아스키 셀이 하나하나 무작위 방향으로 흩날리며
        사라지는 붕괴(디스퍼전) 연출로 넘어간다. */

@@ -284,92 +284,101 @@ WBF.Audio = (function () {
       window.addEventListener('touchstart', fire, true);
     },
 
-    /* 타이틀 로고 등장음 — 위에서 아래로 내려앉는 오르간/신스 코드와 저음 서브.
-       외부 음원 없이 오실레이터·필터·딜레이만 쓴다(하강형이라야 델타룬 로고 감성이 난다). */
+    /* ---------- 타이틀 ----------
+       '시스템 부팅' 흐름: 로고 등장(전원 → 데이터 재잘거림 → 화음 착지) → 대기 드론(ambience 3)
+       → 시작: 확인음 + 디지털 붕괴(titleOut) → 커튼이 걷힐 때 시스템 온라인(reveal). */
+
+    /* 타이틀 로고 등장음(약 3.8초). 0~0.9초 전원이 들어오는 저음 스웰과 차오르는 노이즈,
+       0.15~0.95초 점점 빨라지는 계단 왜곡 블립(모자이크가 세분화되는 결), 0.95초 A단조 화음
+       (A2·C3·E3·G3 톱니파, 로우패스가 열렸다 천천히 닫힘) + 서브 킥 착지, 이어서 유리 종소리 아르페지오. */
     logo: function () {
-      if (!ensure() || muted) return;
+      if (!ok()) return;
       var t0 = ctx.currentTime + 0.03;
       var i;
 
-      /* 1) 저음 서브: 한 옥타브 아래로 천천히 내려앉는 사인 — 묵직한 바닥 */
+      /* 1) 전원: 41→55Hz로 올라서는 서브 + 대역이 위로 열리는 노이즈 */
       var sub = ctx.createOscillator();
       sub.type = 'sine';
-      sub.frequency.setValueAtTime(110, t0);
-      sub.frequency.exponentialRampToValueAtTime(41.2, t0 + 2.3);
+      sub.frequency.setValueAtTime(41.2, t0);
+      sub.frequency.exponentialRampToValueAtTime(55, t0 + 0.9);
       var subG = ctx.createGain();
       subG.gain.setValueAtTime(0.0001, t0);
-      subG.gain.exponentialRampToValueAtTime(0.3, t0 + 0.3);
-      subG.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.9);
+      subG.gain.exponentialRampToValueAtTime(0.22, t0 + 0.85);
+      subG.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.4);
       sub.connect(subG);
       subG.connect(master);
       sub.start(t0);
-      sub.stop(t0 + 3.0);
+      sub.stop(t0 + 3.5);
+      noise(0.9, 0.06, 250, 3200, 'bandpass', 0.03, master, 1.6);
 
-      /* 2) 코드 버스: 로우패스가 위에서 아래로 닫혀 어둠 속으로 가라앉는다 */
-      var lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.Q.value = 0.8;
-      lp.frequency.setValueAtTime(3200, t0);
-      lp.frequency.exponentialRampToValueAtTime(420, t0 + 2.1);
-      var chordG = ctx.createGain();
-      chordG.gain.setValueAtTime(0.0001, t0);
-      chordG.gain.exponentialRampToValueAtTime(0.16, t0 + 0.42);
-      chordG.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.7);
-      lp.connect(chordG);
-      chordG.connect(master);
-      /* 깊이감: 기존 딜레이 공간으로 살짝 흘려보낸다 */
-      var send = ctx.createGain();
-      send.gain.value = 0.5;
-      chordG.connect(send);
-      send.connect(space);
-
-      /* 3) 오르간 스택 — 단7도가 섞인 A단조가 반음 위에서 목표음으로 글라이드 */
-      var f0 = [220, 261.63, 329.63, 392];
-      for (i = 0; i < f0.length; i++) {
-        var base = f0[i];
-        var when = t0 + i * 0.06;
-        var saw = ctx.createOscillator();
-        saw.type = 'sawtooth';
-        saw.frequency.setValueAtTime(base * 1.5, when);
-        saw.frequency.exponentialRampToValueAtTime(base * 0.5, when + 1.25);
-        var g1 = ctx.createGain();
-        g1.gain.value = 0.055 - i * 0.006;
-        saw.connect(g1);
-        g1.connect(lp);
-        saw.start(when);
-        saw.stop(t0 + 3.0);
-
-        var tri = ctx.createOscillator();
-        tri.type = 'triangle';
-        tri.frequency.setValueAtTime(base * 2, when);
-        tri.frequency.exponentialRampToValueAtTime(base, when + 1.4);
-        var g2 = ctx.createGain();
-        g2.gain.value = 0.04 - i * 0.004;
-        tri.connect(g2);
-        g2.connect(lp);
-        tri.start(when);
-        tri.stop(t0 + 3.0);
+      /* 2) 데이터 재잘거림: 16개 블립, 간격이 점점 좁아지고 음이 대체로 올라간다 */
+      for (i = 0; i < 16; i++) {
+        var when = 0.18 + 0.78 * Math.pow(i / 16, 0.6);
+        var deg = Math.floor(i * 0.55) + ((Math.random() * 3) | 0);
+        var f = note(deg, 2 + (i > 9 ? 1 : 0));
+        tone('square', f, f, 0.03, 0.05 + i * 0.002, when, crush);
       }
 
-      /* 4) 숨결 같은 노이즈 스웰 — 신비로운 공기감 */
-      var src = ctx.createBufferSource();
-      src.buffer = noiseBuf;
-      src.loop = true;
-      var bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.Q.value = 1.4;
-      bp.frequency.setValueAtTime(1200, t0);
-      bp.frequency.exponentialRampToValueAtTime(3200, t0 + 1.2);
-      bp.frequency.exponentialRampToValueAtTime(600, t0 + 2.8);
-      var ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.0001, t0);
-      ng.gain.exponentialRampToValueAtTime(0.05, t0 + 0.9);
-      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.9);
-      src.connect(bp);
-      bp.connect(ng);
-      ng.connect(master);
-      src.start(t0);
-      src.stop(t0 + 3.0);
+      /* 3) 착지: 화음 패드(공유 로우패스) + 서브 킥 + 노이즈 크랙 */
+      var hitT = t0 + 0.95;
+      var lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.Q.value = 1.2;
+      lp.frequency.setValueAtTime(300, hitT);
+      lp.frequency.exponentialRampToValueAtTime(2600, hitT + 0.35);
+      lp.frequency.exponentialRampToValueAtTime(520, hitT + 2.8);
+      var padG = ctx.createGain();
+      padG.gain.setValueAtTime(0.0001, hitT);
+      padG.gain.exponentialRampToValueAtTime(0.13, hitT + 0.12);
+      padG.gain.exponentialRampToValueAtTime(0.0001, hitT + 2.9);
+      lp.connect(padG);
+      padG.connect(master);
+      var rs = ctx.createGain();
+      rs.gain.value = 0.55;
+      padG.connect(rs);
+      rs.connect(room);
+      var chord = [note(0, 0), note(2, 0), note(4, 0), note(6, 0)];
+      for (i = 0; i < chord.length; i++) {
+        for (var k = 0; k < 2; k++) {
+          var o = ctx.createOscillator();
+          o.type = 'sawtooth';
+          o.frequency.value = chord[i] * (k ? 1.006 : 0.997);
+          var og = ctx.createGain();
+          og.gain.value = 0.045 - i * 0.005;
+          o.connect(og);
+          og.connect(lp);
+          o.start(hitT);
+          o.stop(hitT + 3.0);
+        }
+      }
+      tone('sine', 92, 38, 0.55, 0.32, 0.98, master, { bus: room, amt: 0.4 });
+      noise(0.22, 0.1, 4000, 500, 'lowpass', 0.98);
+
+      /* 4) 유리 종소리: A4 · C5 · E5 · A5 */
+      var bells = [note(0, 2), note(2, 2), note(4, 2), note(0, 3)];
+      for (i = 0; i < bells.length; i++) glass(bells[i], 1.1, 0.05, 1.08 + i * 0.13);
+    },
+
+    /* 시작 직후 붕괴 전환(약 0.9초): 화면의 셀이 흩어지듯 높은 음에서 낮은 음으로 쏟아지는
+       계단 왜곡 블립 + 아래로 닫히는 고역 노이즈 + 낮게 꺼지는 사인 */
+    titleOut: function () {
+      if (!ok()) return;
+      for (var i = 0; i < 14; i++) {
+        var f = note(13 - i, 2);
+        tone('square', f, f * 0.97, 0.035, 0.05, 0.12 + i * 0.055, crush);
+      }
+      noise(0.85, 0.07, 6500, 700, 'highpass', 0.1);
+      tone('sine', note(0, 1), note(0, -1), 0.9, 0.12, 0.12, master, { bus: room, amt: 0.4 });
+    },
+
+    /* 커튼이 걷히며 게임 화면이 드러날 때(약 0.8초): 차오르는 공기 노이즈 + 끝에서 울리는
+       '시스템 온라인' 차임(A4 → E5, 딜레이 공간) */
+    reveal: function () {
+      if (!ok()) return;
+      noise(0.8, 0.06, 300, 2400, 'bandpass', 0, master, 1.4);
+      tone('triangle', note(0, 2), note(0, 2), 0.25, 0.05, 0.55, master, { bus: space, amt: 0.5 });
+      tone('triangle', note(4, 2), note(4, 2), 0.4, 0.05, 0.68, master, { bus: space, amt: 0.6 });
+      tone('square', note(0, 3), note(0, 3), 0.04, 0.03, 0.68, crush);
     },
 
     /* 시작 확인음 — 터미널 입력 확인처럼 짧은 디지털 두 음(음계 E5 → A5). 저역 스윕은 울리지 않는다 */
@@ -579,7 +588,7 @@ WBF.Audio = (function () {
       tone('sine', 55, 55, 1.8, 0.16, 0.42);
     },
 
-    /* 배경 드론 상태(0 꺼짐 · 1 경기 중 · 2 서든데스). 매 프레임 불러도 상태가 바뀔 때만 움직인다 */
+    /* 배경 드론 상태(0 꺼짐 · 1 경기 중 · 2 서든데스 · 3 타이틀 대기). 매 프레임 불러도 상태가 바뀔 때만 움직인다 */
     ambience: function (state) {
       if (state === droneState) return;
       if (!ctx || ctx.state !== 'running') {
@@ -589,10 +598,11 @@ WBF.Audio = (function () {
       if (!drone) drone = buildDrone();
       droneState = state;
       var t = ctx.currentTime;
-      var gainTo = state === 0 ? 0 : (state === 2 ? 0.075 : 0.045);
+      /* 3 = 타이틀 대기: 경기보다 작고 어둡게(로우패스 200Hz) */
+      var gainTo = state === 0 ? 0 : (state === 2 ? 0.075 : (state === 3 ? 0.03 : 0.045));
       drone.out.gain.cancelScheduledValues(t);
-      drone.out.gain.setTargetAtTime(gainTo, t, state === 0 ? 0.25 : 0.8);
-      drone.lp.frequency.setTargetAtTime(state === 2 ? 900 : 320, t, 1.2);
+      drone.out.gain.setTargetAtTime(gainTo, t, state === 0 ? 0.25 : (state === 3 ? 1.6 : 0.8));
+      drone.lp.frequency.setTargetAtTime(state === 2 ? 900 : (state === 3 ? 200 : 320), t, 1.2);
       drone.lfoDepth.gain.setTargetAtTime(state === 2 ? 0.55 : 0, t, 0.6);
       drone.lfo.frequency.setTargetAtTime(state === 2 ? 2.4 : 1.8, t, 0.6);
     }

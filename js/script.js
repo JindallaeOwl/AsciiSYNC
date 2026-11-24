@@ -907,9 +907,12 @@
 
   function loop(now) {
     requestAnimationFrame(loop);
-    /* 배경 드론: 경기 진행 중 1, 서든데스 2, 그 밖(타이틀·대기·일시정지·종료) 0. 상태가 바뀔 때만 움직인다 */
-    WBF.Audio.ambience(game.running && !game.paused && !game.finished ?
-      (game.time > game.shrinkStart ? 2 : 1) : 0);
+    /* 배경 드론: 경기 진행 중 1, 서든데스 2, 그 밖(대기·일시정지·종료) 0. 상태가 바뀔 때만 움직인다.
+       타이틀이 떠 있는 동안에는 타이틀 모듈이 드론(3 = 타이틀 대기)을 맡는다. */
+    if (!(WBF.Title && WBF.Title.isActive && WBF.Title.isActive())) {
+      WBF.Audio.ambience(game.running && !game.paused && !game.finished ?
+        (game.time > game.shrinkStart ? 2 : 1) : 0);
+    }
     if (!last) last = now;
     var delta = (now - last) / 1000;
     last = now;

@@ -76,7 +76,16 @@
       ['ambience(0)', '끄기', function () { A.ambience(0); }]
     ],
     ui: [
-      ['logo()', '타이틀 로고', function () { A.logo(); }],
+      ['logo()', '타이틀 로고(부팅)', function () { A.logo(); }],
+      ['ambience(3)', '타이틀 대기 드론', function () { A.ambience(3); }],
+      ['titleOut()', '붕괴 전환', function () { A.confirm(0.18); A.titleOut(); }],
+      ['reveal()', '커튼 전환', function () { A.reveal(); }],
+      ['타이틀 전체', '로고 → 대기 → 시작', function () {
+        A.logo();
+        setTimeout(function () { A.ambience(3); }, 2400);
+        setTimeout(function () { A.confirm(0.18); A.titleOut(); A.ambience(0); }, 6500);
+        setTimeout(function () { A.reveal(); }, 7400);
+      }],
       ['confirm()', '시작 확인', function () { A.confirm(); }],
       ['talk(640)', '말풍선 대화', function () { for (var i = 0; i < 6; i++) setTimeout((function (k) { return function () { A.talk(640, k); }; })(i), i * 70); }]
     ]
