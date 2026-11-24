@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>battle_sim.ts — ASCII PHYSICS ARENA</title>
+  <title>ASCII SYNC</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Press+Start+2P&family=VT323&display=swap">
@@ -16,19 +16,19 @@
     </main>
 
     <div class="statusbar">
-      <span class="sb-left" id="sbLeft">battle_sim.ts — [SURVIVORS: 0 | TIME: 00:58]</span>
+      <span class="sb-left" id="sbLeft">[SURVIVORS: 0 | TIME: 00:58]</span>
       <span class="sb-mid" id="sbFps" role="group" aria-label="프레임 레이트 전환">[ FPS: <span class="fps-opt" data-fps="30">30</span> / <span class="fps-opt" data-fps="60">60</span> ]</span>
       <span class="sb-right" id="sbRight">idle &bull; -- fps</span>
     </div>
 
     <section class="console" aria-label="설정 및 로그">
       <div class="editor" id="editorPane">
-        <div class="pane-head"><span class="tag" id="editorTag">설정.ts</span><span class="hint" id="editorHint">값을 클릭해 변경</span><span class="lang" id="langToggle" role="group" aria-label="언어 전환"><button type="button" class="lang-opt on" data-lang="ko" aria-pressed="true">한국어</button><span class="lang-sep">/</span><button type="button" class="lang-opt" data-lang="en" aria-pressed="false">EN</button></span></div>
+        <div class="pane-head"><span class="tag" id="editorTag">설정</span><span class="hint" id="editorHint">값을 클릭해 변경</span><span class="lang" id="langToggle" role="group" aria-label="언어 전환"><button type="button" class="lang-opt on" data-lang="ko" aria-pressed="true">한국어</button><span class="lang-sep">/</span><button type="button" class="lang-opt" data-lang="en" aria-pressed="false">EN</button></span></div>
         <ol class="code" id="code"></ol>
       </div>
 
       <div class="telemetry" id="telemetryPane">
-        <div class="pane-head"><span class="tag">COMBAT_LOG // TELEMETRY</span><span class="hint">tail -f</span></div>
+        <div class="pane-head"><span class="tag">LOG</span></div>
         <div class="units" id="units" aria-label="파이터 체력 요약"></div>
         <div class="logwrap">
           <ol class="log" id="log" role="log" aria-live="polite"></ol>

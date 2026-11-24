@@ -1,7 +1,7 @@
 /* 처음 경기를 시작할 때 한 번 도는 Swarm 커서 튜토리얼 시나리오
    경기를 대기 상태로 세워 두고 커서 3기(GUIDE · SCOUT · SYSTEM)가
    경기장 → 상태 바 → 설정 터미널 머리 → 설정 줄 → 스크롤 바 드래그 → 매치업 빌더 →
-   적용 줄 → 키·제한 줄 → COMBAT_LOG → FPS 토글 → 텔레메트리 순으로 드래그 선택하며 설명하고,
+   적용 줄 → 키·제한 줄 → 로그 패널 → FPS 토글 → 체력·게이지 순으로 드래그 선택하며 설명하고,
    마지막에 고정 대진(BLADE x1 vs RAILGUN x1) 시뮬레이션을 시작해 중계·해설한 뒤 흩어진다.
    선택·클릭 연출은 보여 주기만 하며 실제 설정을 바꾸지 않는다(예외: 해설 중 배속 시연).
    Esc를 누르면 즉시 건너뛰고 그 자리에서 경기가 시작된다. */
@@ -48,9 +48,9 @@ WBF.Tutorial = (function () {
       slowWatch: '어때요? 이렇게 보면 스킬이 차오르는 장면이 훨씬 세밀하게 보이죠?',
       speedBack: '좋습니다. 배속은 다시 1배로 돌려 두겠습니다.',
       c4: '즐겁게 관전하세요. 설정은 언제든 클릭 한 번으로 바꿀 수 있습니다!',
-      L_arena: 'ARENA',
-      L_status: 'STATUS_BAR',
-      L_head: 'TERMINAL',
+      L_arena: '경기장',
+      L_status: '상태 바',
+      L_head: '설정',
       L_action: 'L2 · 동작 / 배속',
       L_speed: 'L3 · 배속',
       L_cell: 'L4 · 밀도 / 소리',
@@ -58,9 +58,9 @@ WBF.Tutorial = (function () {
       L_builder: 'L10-14 · 매치업 빌더',
       L_apply: 'L15 · 적용',
       L_keys: 'L16-19 · 키 / 제한',
-      L_log: 'COMBAT_LOG',
+      L_log: '로그',
       L_fps: 'FPS 30 / 60',
-      L_units: 'TELEMETRY'
+      L_units: '체력 / 게이지'
     },
     en: {
       guide: 'GUIDE', scout: 'SCOUT', sys: 'SYSTEM',
@@ -88,8 +88,8 @@ WBF.Tutorial = (function () {
       speedBack: 'Good — putting the speed back to 1x.',
       c4: 'Enjoy the show — every setting is one click away!',
       L_arena: 'ARENA',
-      L_status: 'STATUS_BAR',
-      L_head: 'TERMINAL',
+      L_status: 'STATUS BAR',
+      L_head: 'SETTINGS',
       L_action: 'L2 · ACTION / SPEED',
       L_speed: 'L3 · SIM_SPEED',
       L_cell: 'L4 · CELL / SOUND',
@@ -97,9 +97,9 @@ WBF.Tutorial = (function () {
       L_builder: 'L10-14 · MATCHUP BUILDER',
       L_apply: 'L15 · APPLY',
       L_keys: 'L16-19 · KEYS / LIMIT',
-      L_log: 'COMBAT_LOG',
+      L_log: 'LOG',
       L_fps: 'FPS 30 / 60',
-      L_units: 'TELEMETRY'
+      L_units: 'HP / GAUGE'
     }
   };
 
@@ -437,7 +437,7 @@ WBF.Tutorial = (function () {
       /* ⑪ 키 안내 · 경기 제한 */
       if (!await explainRows({ id: 'scout', from: 16, to: 19, label: T().L_keys, text: T().keys, ms: 3800 })) return;
 
-      /* ⑫ COMBAT_LOG */
+      /* ⑫ 로그 패널 */
       if (!await explain({ id: 'sys', rect: elRect(logHead), label: T().L_log, text: T().log, ms: 3600 })) return;
 
       /* ⑬ FPS 토글 */

@@ -400,7 +400,7 @@
   /* 설정 패널 토큰 이름·주석. 코드 문법 기호(const·=·[ ]·;)는 두 언어 공통 */
   var LABELS = {
     ko: {
-      fileTag: '설정.ts',
+      fileTag: '설정',
       hint: '값을 클릭해 변경',
       comment1: '// 설정 — 값을 클릭해 변경 · 즉시 적용',
       action: '동작',
@@ -437,9 +437,9 @@
       worldH: '높이'
     },
     en: {
-      fileTag: 'SIM_CONFIG.ts',
+      fileTag: 'SETTINGS',
       hint: 'click values to edit',
-      comment1: '// SIM_CONFIG — 값을 클릭해 변경 · 실행',
+      comment1: '// SETTINGS — click a value to change it',
       action: 'ACTION',
       actionNames: ['▶ RUN', '❚❚ PAUSE', '↻ RESET'],
       actionComment: '   // click → 실행',
@@ -683,6 +683,8 @@
     if (logWrap && logEl) logWrap.scrollTop = logEl.offsetTop + logEl.offsetHeight;
   }
 
+  var LOG_TONE = { time: '#3b4553', sys: '#6b7787', hit: '#9aa6b5', warn: '#e6edf5' };
+
   function pushLog(text, kind) {
     var pinned = atBottom();
     var row = document.createElement('div');
@@ -693,17 +695,20 @@
     no.textContent = logSeq < 10 ? '0' + logSeq : String(logSeq);
     no.style.cssText = 'flex:0 0 24px;text-align:right;color:#2b3543;user-select:none;';
 
+    /* 로그는 색상 없이 회색 밝기 단계로만 구분한다(시각·번호 < 시스템 < 전투 < 경고).
+       경고(탈락·서든데스·오류)만 가장 밝게 두어 훑어볼 때 눈에 걸리게 한다. */
+    var ts = document.createElement('span');
+    ts.textContent = fmtTime(game.time);
+    ts.style.cssText = 'flex:0 0 auto;color:' + LOG_TONE.time + ';';
+
     var txt = document.createElement('span');
-    txt.textContent = fmtTime(game.time) + ' ' + text;
-    var color = C.com;
-    if (kind === 'warn') color = C.warn;
-    else if (kind === 'hit') color = C.num;
-    else if (kind === 'sys') color = C.id;
-    txt.style.color = color;
+    txt.textContent = text;
+    txt.style.color = LOG_TONE[kind] || LOG_TONE.sys;
     txt.style.flex = '1';
     txt.style.minWidth = '0';
 
     row.appendChild(no);
+    row.appendChild(ts);
     row.appendChild(txt);
     logEl.appendChild(row);
 
@@ -822,9 +827,9 @@
         }
         if (aliveN > 0) vs.push(TYPES[tq].tag + '(' + aliveN + ')');
       }
-      left = 'battle_sim.ts — [TEAM: ' + (vs.length ? vs.join(' vs ') : 'NONE') + tail;
+      left = '[TEAM: ' + (vs.length ? vs.join(' vs ') : 'NONE') + tail;
     } else {
-      left = 'battle_sim.ts — [SURVIVORS: ' + count + tail;
+      left = '[SURVIVORS: ' + count + tail;
     }
     if (left !== lastLeft) {
       lastLeft = left;
