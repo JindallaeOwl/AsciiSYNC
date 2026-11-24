@@ -692,14 +692,28 @@ WBF.Title = (function () {
 
   /* ---------- 상·하단 터미널 시스템 정보(아스키 스크롤) ---------- */
 
-  /* HUD 문자열을 재사용 객체에 담는다(매 프레임 새 객체를 만들지 않는다) */
+  /* 하단 줄(출전 클래스 명단)은 WBF.TYPES에서 한 번만 만든다 */
+  var hudRoster = '';
+  function rosterLine() {
+    if (hudRoster) return hudRoster;
+    var types = WBF.TYPES || [];
+    var s = 'ROSTER  ';
+    for (var i = 0; i < types.length; i++) {
+      s += types[i].tag + ' ' + types[i].hp + ' HP ' + types[i].skillName + '  |  ';
+    }
+    hudRoster = s;
+    return s;
+  }
+
+  /* HUD 문자열을 재사용 객체에 담는다(매 프레임 새 객체를 만들지 않는다).
+     상단은 지금 화면의 실제 값(해상도·배경 격자·FPS·오디오 잠금), 하단은 출전 클래스 명단이다.
+     두 줄 모두 '  |  '로 끝나 이어 붙인 경계가 다른 구분과 똑같이 보인다. */
   function hudLines() {
-    hudLines.top = 'SYS_CORE_ACTIVE // GRID_LINK: OK // CELL_BUFFER: LIVE // FPS: ' + fps +
-      ' // SYNC_STATUS: OK // ASCII_ENCODER: ONLINE   ';
-    /* 하단 줄은 ' // '로 끝맺어 처음('BUFFER: LIVE')과 자연스럽게 맞물린다.
-       끝에 'BUFFER: LIVE'를 또 두면 이어 붙을 때 같은 문구가 두 번 겹쳐 끊겨 보인다. */
-    hudLines.bot = 'BUFFER: LIVE   ASCII_SYNC.TERM // GRID: ' + cols + 'x' + rows +
-      ' // REPEAT: 0x1A // GLYPH: 5X7+9X12 // ';
+    var audioOn = hasAudio() && WBF.Audio.state() === 'running';
+    hudLines.top = 'ASCII SYNC  |  VIEW ' + cssW + 'X' + cssH + ' @' + (Math.round(dpr * 100) / 100) +
+      'X  |  GRID ' + cols + 'X' + rows + ' = ' + (cols * rows) + ' CELLS  |  FPS ' + fps +
+      '  |  AUDIO ' + (audioOn ? 'ON' : 'LOCKED') + '  |  ';
+    hudLines.bot = rosterLine();
     return hudLines;
   }
 

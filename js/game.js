@@ -566,7 +566,7 @@ window.WBF = window.WBF || {};
     if (this.time > this.shrinkStart) {
       if (!this.deathAnnounced) {
         this.deathAnnounced = true;
-        this.log('WARNING: SUDDEN_DEATH_INITIATED', 'warn');
+        this.log('SUDDEN_DEATH // walls closing in', 'warn');
         WBF.Audio.suddenDeath();
       }
       var t = this.time - this.shrinkStart;
@@ -778,7 +778,7 @@ window.WBF = window.WBF || {};
     this.effects.emberBurst(sx, sy, Math.cos(a), Math.sin(a), 3, 0.5);
     this.effects.wave(sx, sy, f.color, 110, 0.4);
     WBF.Audio.shoot();
-    this.log(f.label + ' fired RAILGUN // recoil', 'hit');
+    this.log(f.label + ' fired', 'hit');
   };
 
   Game.prototype.updateBullets = function (dt) {
@@ -822,7 +822,7 @@ window.WBF = window.WBF || {};
             this.effects.spark(b.x, b.y, 14, b.color, 8);
             this.effects.wave(b.x, b.y, b.color, 130, 0.45);
             WBF.Audio.hit(1.3);
-            if (b.owner) this.log(b.owner.label + ' crit -> ' + o.label + ' (-' + Math.round(dealt) + ' HP)', 'hit');
+            if (b.owner) this.log(b.owner.label + ' shot ' + o.label + ' -' + Math.round(dealt) + ' HP', 'hit');
             b.alive = false;
             break;
           }
@@ -878,7 +878,7 @@ window.WBF = window.WBF || {};
     this.effects.wave(p.x, p.y, f.color, 220, 0.7);
     this.killShake();
     WBF.Audio.pop();
-    this.log((source ? source.label + ' eliminated ' : '') + f.label, 'warn');
+    this.log(source ? source.label + ' eliminated ' + f.label : f.label + ' eliminated', 'warn');
   };
 
   Game.prototype.split = function (f) {
@@ -914,7 +914,7 @@ window.WBF = window.WBF || {};
     this.effects.text(p.x, p.y - 30, 'SPLIT', f.color, 15);
     this.addShake(9);
     WBF.Audio.split();
-    this.log(f.label + ' divided // units=2', 'sys');
+    this.log(f.label + ' split into 2', 'sys');
   };
 
   Game.prototype.growBody = function (f) {
@@ -1052,7 +1052,8 @@ window.WBF = window.WBF || {};
       WBF.Audio.hit(1.2);
       if (this.time - (this.hitLogAt[fa.id] || -9) > 0.4) {
         this.hitLogAt[fa.id] = this.time;
-        this.log(fa.label + ' dealt ' + Math.round(Math.max(d1, d2)) + ' DMG to ' + fb.label, 'hit');
+        /* 충돌은 양쪽이 서로 피해를 받으므로 각자 잃은 체력을 자기 이름 옆에 적는다 */
+        this.log(fa.label + ' -' + Math.round(d2) + ' HP <> ' + fb.label + ' -' + Math.round(d1) + ' HP', 'hit');
       }
     } else {
       WBF.Audio.hit(0.45 + rel * 0.05);
@@ -1103,7 +1104,7 @@ window.WBF = window.WBF || {};
     else if (f.typeId === 'railgun') this.skillCastRailgun(f, target);
     else if (f.typeId === 'juggernaut') this.skillCastJuggernaut(f, target, mx, my);
     else this.skillCastSplitter(f, target, mx, my);
-    this.log(f.label + ' >> SKILL ' + f.skillName + ' // gauge=0%', 'sys');
+    this.log(f.label + ' >> SKILL ' + f.skillName, 'sys');
   };
 
   /* ① BLADE — 360도 회전 검기 난무: 주변 광역 피해 + 충돌 상대에게 큰 단일 피해 */
@@ -1160,11 +1161,14 @@ window.WBF = window.WBF || {};
 
     this.beams.push({ x1: x1, y1: y1, x2: x2, y2: y2, life: 0.44, max: 0.44, color: '#ff1e56' });
 
+    var hitN = 0;
+    var hitDmg = 0;
     for (var i = 0; i < this.fighters.length; i++) {
       var o = this.fighters[i];
       if (!o.alive || o === f || o.teamId === f.teamId) continue;
       if (segDist(o.body.position.x, o.body.position.y, x1, y1, x2, y2) > o.radius + 8) continue;
-      this.damage(o, 72, f, o.body.position.x, o.body.position.y, '#ff2a55');
+      hitN++;
+      hitDmg += this.damage(o, 72, f, o.body.position.x, o.body.position.y, '#ff2a55');
       var push = Math.atan2(o.body.position.y - p.y, o.body.position.x - p.x);
       Matter.Body.setVelocity(o.body, {
         x: o.body.velocity.x + Math.cos(push) * 4.6,
@@ -1193,7 +1197,7 @@ window.WBF = window.WBF || {};
     this.effects.muzzleSmoke(p.x - ca * ((f.radius || 33) + 4), p.y - sa * ((f.radius || 33) + 4), -ca, -sa, 10, 0.85);
     this.addShake(6.5);
     WBF.Audio.laser();
-    this.log(f.label + ' charged_laser // 72 DMG // heavy recoil', 'hit');
+    this.log(f.label + ' laser ' + (hitN ? 'hit ' + hitN + ' -' + Math.round(hitDmg) + ' HP' : 'missed'), 'hit');
   };
 
   /* ③ JUGGERNAUT — 거대화 + 황금 충격파 광폭 돌진(짓누르기) */

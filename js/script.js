@@ -805,9 +805,11 @@
       if (!survivors[f.teamId]) { survivors[f.teamId] = true; count++; }
     }
 
-    /* 경기 종료 시각까지 하나의 카운트다운으로 센다 — 서든데스 시작에서 값이 튀지 않는다 */
+    /* 경기 종료 시각까지 하나의 카운트다운으로 센다 — 서든데스 시작에서 값이 튀지 않는다.
+       이 시계는 경기 종료까지 남은 시간이므로 'TIME'으로 적고, 서든데스는 시작된 뒤에만 표시한다. */
     var remain = Math.max(0, game.matchLimit - game.time);
     var clock = two(Math.floor(remain / 60)) + ':' + two(Math.floor(remain % 60));
+    var tail = ' | TIME: ' + clock + (game.time > game.shrinkStart ? ' | SUDDEN_DEATH' : '') + ']';
 
     var left;
     if (game.teamMode) {
@@ -820,9 +822,9 @@
         }
         if (aliveN > 0) vs.push(TYPES[tq].tag + '(' + aliveN + ')');
       }
-      left = 'battle_sim.ts — [TEAM: ' + (vs.length ? vs.join(' vs ') : 'NONE') + ' | SUDDEN_DEATH: ' + clock + ']';
+      left = 'battle_sim.ts — [TEAM: ' + (vs.length ? vs.join(' vs ') : 'NONE') + tail;
     } else {
-      left = 'battle_sim.ts — [SURVIVORS: ' + count + ' | SUDDEN_DEATH: ' + clock + ']';
+      left = 'battle_sim.ts — [SURVIVORS: ' + count + tail;
     }
     if (left !== lastLeft) {
       lastLeft = left;
