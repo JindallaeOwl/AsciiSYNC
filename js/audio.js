@@ -23,6 +23,7 @@ WBF.Audio = (function () {
   var MAX_VOICES = 40;
   var voices = 0;
   var lastAt = {};
+  var capOff = false;   /* 타이틀 로고처럼 노드를 한꺼번에 많이 예약하는 소리만 잠시 상한을 끈다 */
 
   /* 배경 드론 */
   var drone = null;
@@ -134,7 +135,7 @@ WBF.Audio = (function () {
      dest를 주지 않으면 master. send(선택)는 { bus, amt }로 공간 버스에 함께 보낸다. */
   function tone(type, f0, f1, dur, gain, when, dest, send) {
     if (!ensure()) return;
-    if (voices >= MAX_VOICES) return;
+    if (voices >= MAX_VOICES && !capOff) return;
     var t = ctx.currentTime + (when || 0);
     var osc = ctx.createOscillator();
     osc.type = type;
@@ -160,7 +161,7 @@ WBF.Audio = (function () {
   /* 필터 노이즈 한 번: kind = 'bandpass' | 'highpass' | 'lowpass', 필터 주파수 f0→f1 */
   function noise(dur, gain, f0, f1, kind, when, dest, q) {
     if (!ensure()) return;
-    if (voices >= MAX_VOICES) return;
+    if (voices >= MAX_VOICES && !capOff) return;
     var t = ctx.currentTime + (when || 0);
     var src = ctx.createBufferSource();
     src.buffer = noiseBuf;
@@ -186,6 +187,17 @@ WBF.Audio = (function () {
   function glass(f, dur, gain, when, dest) {
     tone('sine', f, f * 0.998, dur, gain, when, dest || space);
     tone('sine', f * 2.76, f * 2.75, dur * 0.55, gain * 0.45, when, dest || space);
+  }
+
+  /* 블록 딸깍: 레고처럼 '누르고 → 걸리는' 두 번 딸깍.
+     고역 대역 노이즈 클릭 + 음계 음높이로 빠르게 떨어지는 짧은 몸통 '톡'(삼각파),
+     18ms 뒤 한 단계 높고 작은 두 번째 클릭. dig이면 두 번째 클릭을 crush 버스 사각파로 낸다. */
+  function snap(f, band, amt, when, dig) {
+    noise(0.012, 0.11 * amt, band, band * 0.8, 'bandpass', when, master, 3);
+    tone('triangle', f * 2, f, 0.05, 0.12 * amt, when);
+    noise(0.008, 0.07 * amt, band * 1.5, band * 1.3, 'bandpass', when + 0.018, master, 4);
+    if (dig) tone('square', f * 4, f * 4, 0.02, 0.05 * amt, when + 0.018, crush);
+    else tone('sine', f * 3, f * 2.6, 0.03, 0.05 * amt, when + 0.018);
   }
 
   /* 금속 울림: 사인 두 개(×1 / ×2.41)와 짧은 고역 노이즈 — 칼날 '칭' */
@@ -288,53 +300,72 @@ WBF.Audio = (function () {
        '시스템 부팅' 흐름: 로고 등장(전원 → 데이터 재잘거림 → 화음 착지) → 대기 드론(ambience 3)
        → 시작: 확인음 + 디지털 붕괴(titleOut) → 커튼이 걷힐 때 시스템 온라인(reveal). */
 
-    /* 타이틀 로고 등장음(약 3.8초). 0~0.9초 전원이 들어오는 저음 스웰과 차오르는 노이즈,
-       0.15~0.95초 점점 빨라지는 계단 왜곡 블립(모자이크가 세분화되는 결), 0.95초 A단조 화음
-       (A2·C3·E3·G3 톱니파, 로우패스가 열렸다 천천히 닫힘) + 서브 킥 착지, 이어서 유리 종소리 아르페지오. */
+    /* 타이틀 로고 등장음 — 블록 조립(약 3.3초).
+       로고 모자이크가 6칸 → 3칸 → 2칸 → 1칸 블록으로 쪼개지는 흐름에 맞춰 조립음을 4단계로 낸다.
+       큰 블록은 묵직한 '툭', 작은 블록으로 갈수록 높고 가볍고 촘촘한 '딸깍'이 되고,
+       마지막 1칸 조각은 crush 버스로 디지털 결을 입힌다. 1.25초에 큰 '카칭' 잠김과 함께
+       A단조 화음 + 서브 킥이 착지하고 유리 종소리가 이어진다. 타이틀은 로고 완성(2.1초)에
+       잠김이 오도록 0.85초에 이 소리를 부른다. 미리 예약하는 노드가 많아 동시 발음 상한을 잠시 끈다. */
     logo: function () {
       if (!ok()) return;
       var t0 = ctx.currentTime + 0.03;
       var i;
+      capOff = true;
 
-      /* 1) 전원: 41→55Hz로 올라서는 서브 + 대역이 위로 열리는 노이즈 */
+      /* 1) 바닥: 조립 내내 깔리는 낮은 서브 스웰(41→55Hz) */
       var sub = ctx.createOscillator();
       sub.type = 'sine';
       sub.frequency.setValueAtTime(41.2, t0);
-      sub.frequency.exponentialRampToValueAtTime(55, t0 + 0.9);
+      sub.frequency.exponentialRampToValueAtTime(55, t0 + 1.25);
       var subG = ctx.createGain();
       subG.gain.setValueAtTime(0.0001, t0);
-      subG.gain.exponentialRampToValueAtTime(0.22, t0 + 0.85);
-      subG.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.4);
+      subG.gain.exponentialRampToValueAtTime(0.14, t0 + 1.1);
+      subG.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.0);
       sub.connect(subG);
       subG.connect(master);
       sub.start(t0);
-      sub.stop(t0 + 3.5);
-      noise(0.9, 0.06, 250, 3200, 'bandpass', 0.03, master, 1.6);
+      sub.stop(t0 + 3.1);
 
-      /* 2) 데이터 재잘거림: 16개 블립, 간격이 점점 좁아지고 음이 대체로 올라간다 */
-      for (i = 0; i < 16; i++) {
-        var when = 0.18 + 0.78 * Math.pow(i / 16, 0.6);
-        var deg = Math.floor(i * 0.55) + ((Math.random() * 3) | 0);
-        var f = note(deg, 2 + (i > 9 ? 1 : 0));
-        tone('square', f, f, 0.03, 0.05 + i * 0.002, when, crush);
+      /* 2) 조립 4단계: [시작, 끝, 개수, 몸통 음계 도수 범위, 옥타브, 노이즈 대역, 세기, crush 여부] */
+      var waves = [
+        [0.00, 0.34, 5, [0, 2], 0, 1400, 1.0, false],   /* 6칸: 묵직한 툭 */
+        [0.34, 0.68, 8, [4, 7], 0, 2400, 0.8, false],   /* 3칸 */
+        [0.68, 0.98, 11, [2, 4], 1, 3400, 0.62, false], /* 2칸 */
+        [0.98, 1.20, 14, [0, 4], 2, 5200, 0.45, true]   /* 1칸: 작고 디지털한 틱 */
+      ];
+      for (var w = 0; w < waves.length; w++) {
+        var wv = waves[w];
+        for (i = 0; i < wv[2]; i++) {
+          /* 단계 안에서도 간격을 조금씩 흔들어 손으로 끼우는 리듬을 낸다 */
+          var when = wv[0] + (wv[1] - wv[0]) * ((i + 0.15 + Math.random() * 0.5) / wv[2]);
+          var deg = wv[3][0] + ((Math.random() * (wv[3][1] - wv[3][0] + 1)) | 0);
+          snap(note(deg, wv[4]), wv[5], wv[6], when, wv[7]);
+        }
       }
 
-      /* 3) 착지: 화음 패드(공유 로우패스) + 서브 킥 + 노이즈 크랙 */
-      var hitT = t0 + 0.95;
+      /* 3) 잠김 '카칭': 크게 두 번 딸깍 + 서브 킥 + 노이즈 크랙 */
+      var lockAt = 1.25;
+      snap(note(0, 1), 1800, 1.6, lockAt, false);
+      snap(note(4, 2), 4200, 1.0, lockAt + 0.035, true);
+      tone('sine', 92, 38, 0.55, 0.3, lockAt + 0.01, master, { bus: room, amt: 0.4 });
+      noise(0.2, 0.09, 4000, 500, 'lowpass', lockAt + 0.01);
+
+      /* 4) 화음 착지: A2·C3·E3·G3 디튠 톱니파 2겹, 로우패스가 열렸다 천천히 닫힌다 */
+      var hitT = t0 + lockAt;
       var lp = ctx.createBiquadFilter();
       lp.type = 'lowpass';
       lp.Q.value = 1.2;
       lp.frequency.setValueAtTime(300, hitT);
-      lp.frequency.exponentialRampToValueAtTime(2600, hitT + 0.35);
-      lp.frequency.exponentialRampToValueAtTime(520, hitT + 2.8);
+      lp.frequency.exponentialRampToValueAtTime(2400, hitT + 0.3);
+      lp.frequency.exponentialRampToValueAtTime(520, hitT + 2.0);
       var padG = ctx.createGain();
       padG.gain.setValueAtTime(0.0001, hitT);
-      padG.gain.exponentialRampToValueAtTime(0.13, hitT + 0.12);
-      padG.gain.exponentialRampToValueAtTime(0.0001, hitT + 2.9);
+      padG.gain.exponentialRampToValueAtTime(0.11, hitT + 0.1);
+      padG.gain.exponentialRampToValueAtTime(0.0001, hitT + 2.0);
       lp.connect(padG);
       padG.connect(master);
       var rs = ctx.createGain();
-      rs.gain.value = 0.55;
+      rs.gain.value = 0.5;
       padG.connect(rs);
       rs.connect(room);
       var chord = [note(0, 0), note(2, 0), note(4, 0), note(6, 0)];
@@ -348,15 +379,15 @@ WBF.Audio = (function () {
           o.connect(og);
           og.connect(lp);
           o.start(hitT);
-          o.stop(hitT + 3.0);
+          o.stop(hitT + 2.1);
         }
       }
-      tone('sine', 92, 38, 0.55, 0.32, 0.98, master, { bus: room, amt: 0.4 });
-      noise(0.22, 0.1, 4000, 500, 'lowpass', 0.98);
 
-      /* 4) 유리 종소리: A4 · C5 · E5 · A5 */
+      /* 5) 유리 종소리: A4 · C5 · E5 · A5 */
       var bells = [note(0, 2), note(2, 2), note(4, 2), note(0, 3)];
-      for (i = 0; i < bells.length; i++) glass(bells[i], 1.1, 0.05, 1.08 + i * 0.13);
+      for (i = 0; i < bells.length; i++) glass(bells[i], 1.0, 0.05, lockAt + 0.12 + i * 0.12);
+
+      capOff = false;
     },
 
     /* 시작 직후 붕괴 전환(약 0.9초): 화면의 셀이 흩어지듯 높은 음에서 낮은 음으로 쏟아지는

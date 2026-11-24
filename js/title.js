@@ -38,7 +38,7 @@ WBF.Title = (function () {
   var TITLE_AT = 320;        /* 어둠 → 등장 시작 */
   var REFINE_FROM = 900;     /* 모자이크 세분화 시작 */
   var REFINE_TO = 2100;      /* 선명 완성 */
-  var MUSIC_AT = 1500;       /* 로고 코드 */
+  var MUSIC_AT = 850;        /* 로고 조립음 — 1.25초 뒤 잠김이 로고 완성(REFINE_TO)에 맞는다 */
   var PROMPT_AT = 2050;      /* 시작 문구 */
   var DISPERSE_MS = 900;     /* 전환 1: 아스키 셀이 흩어져 사라지는 붕괴 시간 */
   var REVEAL_MS = 820;       /* 전환 2: 검은 블록이 커튼처럼 걷히며 게임 화면이 드러나는 시간 */
@@ -269,11 +269,11 @@ WBF.Title = (function () {
     logoPlayed = true;
     if (!hasAudio()) return;
     WBF.Audio.logo();
-    /* 로고 착지 뒤 시작 문구를 기다리는 동안 아주 작은 타이틀 드론을 깐다(시작하면 끈다) */
+    /* 로고 잠김 뒤 시작 문구를 기다리는 동안 아주 작은 타이틀 드론을 깐다(시작하면 끈다) */
     if (WBF.Audio.ambience) {
       setTimeout(function () {
         if (!started) WBF.Audio.ambience(3);
-      }, 2400);
+      }, 2600);
     }
   }
 
