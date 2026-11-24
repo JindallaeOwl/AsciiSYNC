@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound Test</title>
+<style>
+  :root { --bg: #050507; --fg: #c9d1dc; --dim: #6c7789; --acc: #33ff66; --line: #1c232d; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 "JetBrains Mono", "Courier New", monospace; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 18px; color: var(--acc); margin: 0 0 4px; }
+  p { color: var(--dim); margin: 0 0 20px; }
+  h2 { font-size: 13px; color: var(--dim); margin: 22px 0 8px; font-weight: 400; letter-spacing: .04em; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { background: #0b0f14; color: var(--fg); border: 1px solid var(--line); padding: 8px 12px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--acc); color: var(--acc); }
+  button small { display: block; color: var(--dim); font-size: 11px; }
+  #log { margin-top: 24px; color: var(--dim); font-size: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ASCII SYNC // SOUND_TEST</h1>
+  <p>버튼을 눌러 소리를 하나씩 들어 봅니다. 경기 화면과 같은 js/audio.js를 그대로 씁니다. 첫 클릭에서 오디오가 켜집니다.</p>
+
+  <h2>// 공통</h2>
+  <div class="row" id="common"></div>
+  <h2>// BLADE · RAILGUN · JUGGERNAUT · SPLITTER</h2>
+  <div class="row" id="classes"></div>
+  <h2>// 이벤트</h2>
+  <div class="row" id="events"></div>
+  <h2>// 배경 드론</h2>
+  <div class="row" id="drone"></div>
+  <h2>// 타이틀 · UI</h2>
+  <div class="row" id="ui"></div>
+  <div id="log"></div>
+</main>
+<script src="../js/audio.js"></script>
+<script>
+  var A = WBF.Audio;
+  var groups = {
+    common: [
+      ['hit(0.4)', '약한 충돌', function () { A.hit(0.4); }],
+      ['hit(1.2)', '강한 충돌', function () { A.hit(1.2); }],
+      ['hit(2)', '최대 충돌', function () { A.hit(2); }],
+      ['pop()', '처치(글리치)', function () { A.pop(); }]
+    ],
+    classes: [
+      ['blade()', 'BLADE 베기', function () { A.blade(); }],
+      ['spin()', 'BLADE 스킬', function () { A.spin(); }],
+      ['shoot()', 'RAILGUN 사격', function () { A.shoot(); }],
+      ['charge(3)', 'RAILGUN 충전', function () { A.charge(3); }],
+      ['laser()', 'RAILGUN 레이저', function () { A.laser(); }],
+      ['charge → laser', '충전 후 발사', function () { A.charge(3); setTimeout(function () { A.laser(); }, 3000); }],
+      ['overheat()', 'JUGGERNAUT 과열', function () { A.overheat(); }],
+      ['slam()', 'JUGGERNAUT 스킬', function () { A.slam(); }],
+      ['frag()', 'SPLITTER 스킬', function () { A.frag(); }],
+      ['split()', 'SPLITTER 분열', function () { A.split(); }]
+    ],
+    events: [
+      ['ready(blade)', '게이지 완충', function () { A.ready('blade'); }],
+      ['ready(railgun)', '게이지 완충', function () { A.ready('railgun'); }],
+      ['ready(juggernaut)', '게이지 완충', function () { A.ready('juggernaut'); }],
+      ['ready(splitter)', '게이지 완충', function () { A.ready('splitter'); }],
+      ['wall × 4', '벽 반사 틱', function () {
+        ['blade', 'railgun', 'juggernaut', 'splitter'].forEach(function (t, i) {
+          setTimeout(function () { A.wall(t, 10); }, i * 250);
+        });
+      }],
+      ['suddenDeath()', '서든데스 경보', function () { A.suddenDeath(); }],
+      ['victory()', '승리', function () { A.victory(); }]
+    ],
+    drone: [
+      ['ambience(1)', '경기 중', function () { A.ambience(1); }],
+      ['ambience(2)', '서든데스', function () { A.ambience(2); }],
+      ['ambience(0)', '끄기', function () { A.ambience(0); }]
+    ],
+    ui: [
+      ['logo()', '타이틀 로고', function () { A.logo(); }],
+      ['confirm()', '시작 확인', function () { A.confirm(); }],
+      ['talk(640)', '말풍선 대화', function () { for (var i = 0; i < 6; i++) setTimeout((function (k) { return function () { A.talk(640, k); }; })(i), i * 70); }]
+    ]
+  };
+  var all = [];
+  Object.keys(groups).forEach(function (id) {
+    var el = document.getElementById(id);
+    groups[id].forEach(function (g) {
+      var b = document.createElement('button');
+      b.innerHTML = g[0] + '<small>' + g[1] + '</small>';
+      b.addEventListener('click', function () { A.resume(); g[2](); });
+      el.appendChild(b);
+      all.push(g);
+    });
+  });
+
+  /* ?auto=1: 모든 소리를 차례로 실행해 예외가 없는지 검사하고 결과를 제목과 로그에 남긴다(헤드리스 점검용) */
+  if (/[?&]auto=1/.test(location.search)) {
+    A.resume();
+    var errs = [];
+    var i = 0;
+    (function next() {
+      if (i >= all.length) {
+        var msg = 'AUTO_DONE errors=' + errs.length + ' state=' + A.state() + (errs.length ? ' :: ' + errs.join(' | ') : '');
+        document.title = msg;
+        document.getElementById('log').textContent = msg;
+        return;
+      }
+      var g = all[i++];
+      try { g[2](); } catch (e) { errs.push(g[0] + ': ' + e.message); }
+      setTimeout(next, 120);
+    })();
+  }
+</script>
+</body>
+</html>

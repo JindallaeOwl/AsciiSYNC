@@ -567,6 +567,7 @@ window.WBF = window.WBF || {};
       if (!this.deathAnnounced) {
         this.deathAnnounced = true;
         this.log('WARNING: SUDDEN_DEATH_INITIATED', 'warn');
+        WBF.Audio.suddenDeath();
       }
       var t = this.time - this.shrinkStart;
       var target = Math.min(this.maxInset, t * 9.5);
@@ -1071,6 +1072,7 @@ window.WBF = window.WBF || {};
     var ko = this.lang === 'ko';
     this.effects.text(f.body.position.x, f.body.position.y - (f.radius || 30) - 24,
       ko ? '스킬 준비!' : 'SKILL_READY', f.skillColor || '#ffdf70', ko ? 16 : 10);
+    WBF.Audio.ready(f.typeId);
   };
 
   Game.prototype.findFighterById = function (id) {
@@ -1128,7 +1130,7 @@ window.WBF = window.WBF || {};
     this.effects.wave(px, py, '#ffdf70', R * 0.7, 0.3);
     this.effects.flash(mx, my, '#ffffff');
     this.effects.text(px, py - (f.radius || 36) - 30, 'SPIN_SLASH', f.skillColor, 12);
-    WBF.Audio.blade();
+    WBF.Audio.spin();
     this.addShake(2.5);
   };
 
@@ -1142,7 +1144,7 @@ window.WBF = window.WBF || {};
     f.skillAimT = 3.0;
     f.skillChargeDur = 3.0;
     this.effects.text(f.body.position.x, f.body.position.y - (f.radius || 33) - 24, 'CHARGE 3.0s', '#ff1e56', 11);
-    WBF.Audio.hit(0.5);
+    WBF.Audio.charge(f.skillChargeDur);
   };
 
   Game.prototype.fireSkillLaser = function (f) {
@@ -1190,7 +1192,7 @@ window.WBF = window.WBF || {};
     /* 뒤로 밀려나는 궤적에도 연기 띠를 남긴다 */
     this.effects.muzzleSmoke(p.x - ca * ((f.radius || 33) + 4), p.y - sa * ((f.radius || 33) + 4), -ca, -sa, 10, 0.85);
     this.addShake(6.5);
-    WBF.Audio.shoot();
+    WBF.Audio.laser();
     this.log(f.label + ' charged_laser // 72 DMG // heavy recoil', 'hit');
   };
 
@@ -1215,7 +1217,7 @@ window.WBF = window.WBF || {};
       this.damage(target, 38, f, target.body.position.x, target.body.position.y, '#ffdf70');
       if (target.alive) this.knock(f, target);
     }
-    WBF.Audio.hit(1.5);
+    WBF.Audio.slam();
     this.addShake(9);
   };
 
@@ -1245,7 +1247,7 @@ window.WBF = window.WBF || {};
     }
     this.effects.wave(p.x, p.y, f.color, 170, 0.5);
     this.effects.text(p.x, p.y - (f.radius || 38) - 30, 'FRAG_BURST', f.skillColor, 12);
-    WBF.Audio.split();
+    WBF.Audio.frag();
   };
 
   Game.prototype.updateBeams = function (dt) {
@@ -1267,6 +1269,8 @@ window.WBF = window.WBF || {};
     if (this.time - (f.lastGaugeWall || 0) >= 0.25) {
       f.lastGaugeWall = this.time;
       this.addGauge(f, SKILL_WALL_GAIN);
+      /* 벽 반사 틱(클래스별 아주 작은 소리) — 게이지와 같은 0.25초 쿨다운 안에서만 */
+      WBF.Audio.wall(f.typeId, sp);
     }
 
     if (f.typeId === 'splitter') {
@@ -1288,7 +1292,7 @@ window.WBF = window.WBF || {};
         f.boostT = 1.3;
         f.speedTarget = (f.cruise || 7.8) * 1.7;
         WBF.Fluid.splat(f, f.body.velocity.x, f.body.velocity.y, 2.2);
-        WBF.Audio.hit(0.7);
+        WBF.Audio.overheat();
       }
       if (f.sizeBonus >= 14) return;
       if (sp < 3) return;
