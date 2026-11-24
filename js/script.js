@@ -216,7 +216,8 @@
   }
 
   function bumpDensity(delta) {
-    cellPx = Math.max(9, Math.min(11, cellPx + delta));
+    /* 7~11px: 작을수록 칸이 촘촘해져 같은 크기의 파이터에 글자가 더 들어간다(셀 수가 늘어 무거워진다) */
+    cellPx = Math.max(7, Math.min(11, cellPx + delta));
     game.cellPx = cellPx;
     refresh();
   }

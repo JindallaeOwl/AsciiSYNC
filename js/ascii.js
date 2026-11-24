@@ -168,8 +168,9 @@ WBF.Ascii = (function () {
     var view = this.game.view || { k: 1, ox: 0, oy: 0 };
     var drawW = Math.max(120, WBF.world.W * view.k);
     var drawH = Math.max(80, WBF.world.H * view.k);
-    var cellH = Math.max(9, Math.round(this.fontPx + 1));
-    var cellW = Math.max(5, Math.round(this.fontPx * 0.62));
+    /* 셀 가로·세로·글리프 크기를 글자_크기(7~11px) 하나에서 함께 정해 글자 비율을 지킨다 */
+    var cellH = Math.max(7, Math.round(this.fontPx + 1));
+    var cellW = Math.max(4, Math.round(this.fontPx * 0.62));
     var cols = Math.max(40, Math.floor(drawW / cellW));
     var rows = Math.max(20, Math.floor(drawH / cellH));
     var changed = (cols !== this.cols || rows !== this.rows);
@@ -189,7 +190,9 @@ WBF.Ascii = (function () {
     this.drawW = drawW;
     this.drawH = drawH;
     /* 글리프는 셀 안쪽에만 들어가도록 크기를 제한한다 */
-    this.size = Math.max(7, Math.min(this.cellCssH * 0.98, this.cellCssW * 1.34));
+    this.size = Math.max(5, Math.min(this.cellCssH * 0.98, this.cellCssW * 1.34));
+    /* 유체가 시트를 만들 때 쓸 셀 피치(월드 px) */
+    WBF.cellPitch = { fw: this.fw, fh: this.fh };
 
     if (changed) this.alloc(cols, rows);
 
@@ -240,7 +243,7 @@ WBF.Ascii = (function () {
     this.halfW = this.cellCssW / 2;
     this.halfH = this.cellCssH / 2;
     this.ATLAS_ROWS = 192;
-    this.atlasFont = '700 ' + Math.max(7, this.size * dpr).toFixed(1) + 'px ' + FONT_FAMILY;
+    this.atlasFont = '700 ' + Math.max(5, this.size * dpr).toFixed(1) + 'px ' + FONT_FAMILY;
 
     if (!this.atlas) {
       this.atlas = document.createElement('canvas');
@@ -1498,6 +1501,8 @@ WBF.Ascii = (function () {
       f = g.fighters[i];
       f.cellW = this.fw;
       f.cellH = this.fh;
+      /* 셀 피치가 바뀌면(화면 크기·글자_크기) 셰이딩 아트 유체 시트의 칸 배치도 바뀌므로 유체를 다시 붙인다 */
+      if (f.sheet && f.sheet.art && (f.sheet.fw !== this.fw || f.sheet.fh !== this.fh) && WBF.Fluid) WBF.Fluid.attach(f);
     }
 
     this.clearCells();

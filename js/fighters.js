@@ -19,7 +19,8 @@ WBF.TYPES = [
 /* ---------- 셰이딩 아트 원본(4종) ----------
    손으로 쓴 문자 시트 대신 도형 + 재질 + 두께로 파이터를 정의하고, js/shade.js가 각도별로
    셀마다 가장 닮은 문자와 크롬 반사 색을 구워 둔다(1셀 1문자 규칙은 그대로).
-   좌표: 참조 셀 6×11px 기준 px, 회전 중심 원점, +x = 정면(칼끝), +y = 아래.
+   좌표: 월드 px(충돌 반경 radius와 같은 단위 — 경기장 960×540), 회전 중심 원점, +x = 정면(칼끝), +y = 아래.
+   셀 크기와 무관하게 실루엣의 월드 크기가 고정되므로 글자_크기를 줄이면 같은 실루엣에 칸이 더 들어간다.
    parts는 뒤 → 앞 순서(뒤에 있는 부위가 앞 부위를 덮는다).
    - shape: { circle: [cx, cy, r] } | { poly: [[x,y]...], mirror: true } — mirror면 poly는 y=0 축 위 점에서 시작해 축 위 점으로 끝나는 위쪽 절반 경로이고, 아래 절반은 y를 뒤집어 거꾸로 이어 붙인다
    - mat: materials 키
@@ -202,15 +203,16 @@ WBF.Shapes = (function () {
   var cache = {};
 
   /* 시트 → { cols, rows, cc, cr, cells[{c, r, ch, tier}] } */
-  function sheetFor(typeId) {
+  function sheetFor(typeId, fw, fh) {
+    /* 셰이딩 아트 원본이 있으면 원본을 각도 0·지금 셀 피치로 구운 시트를 쓴다(유체 입자·흩날림
+       문자가 실제 실루엣과 같은 칸에서 나온다). 피치별 캐시는 shade.js가 맡는다.
+       아래 손으로 쓴 시트는 원본이 없을 때의 예비다. */
+    if (WBF.Shade && WBF.Shade.has(typeId)) {
+      var art = WBF.Shade.sheetFromArt(typeId, fw, fh);
+      if (art) return art;
+    }
     var s = cache[typeId];
     if (s) return s;
-    /* 셰이딩 아트 원본이 있으면 원본을 각도 0으로 구운 시트를 쓴다(유체 입자·흩날림 문자가
-       실제 실루엣과 같은 칸에서 나온다). 아래 손으로 쓴 시트는 원본이 없을 때의 예비다. */
-    if (WBF.Shade && WBF.Shade.has(typeId)) {
-      s = WBF.Shade.sheetFromArt(typeId);
-      if (s) { cache[typeId] = s; return s; }
-    }
     var rows = SHEETS[typeId] || SHEETS.blade;
     var cols = 0, i, j;
     for (i = 0; i < rows.length; i++) {

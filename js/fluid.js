@@ -28,7 +28,9 @@ WBF.Fluid = (function () {
 
   /* 시트 셀 수만큼 입자를 만든다(1셀 1입자) */
   function attach(f) {
-    var sheet = WBF.Shapes.sheetFor(f.typeId);
+    /* 렌더러가 레이아웃 때 남긴 셀 피치로 시트를 만든다(셰이딩 아트는 피치마다 칸 배치가 다르다) */
+    var pitch = WBF.cellPitch;
+    var sheet = WBF.Shapes.sheetFor(f.typeId, pitch && pitch.fw, pitch && pitch.fh);
     f.sheet = sheet;
     var cells = sheet.cells;
     var list = [];

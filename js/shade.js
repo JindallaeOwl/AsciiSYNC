@@ -303,9 +303,11 @@ WBF.Shade = (function () {
     var fw = opt.fw;
     var fh = opt.fh;
     var scale = opt.scale || 1;
-    /* 배율: 분열 자식(0.72)·JUGGERNAUT 과열 팽창(1.22)처럼 같은 원본을 크게/작게 굽는다 */
-    var kx = fw * scale / REF_W;
-    var ky = fh * scale / REF_H;
+    /* 원본 좌표는 월드 px다(충돌 반경과 같은 단위). 셀 피치(fw·fh)와 무관하게 실루엣의 월드 크기가
+       고정되므로, 셀이 작아질수록 같은 실루엣에 칸이 더 들어가 디테일이 올라간다.
+       배율: 분열 자식(0.72)·JUGGERNAUT 과열 팽창(1.22)처럼 같은 원본을 크게/작게 굽는다 */
+    var kx = scale;
+    var ky = scale;
     var ang = aIdx * TAU / ANGLES;
     var ca = Math.cos(ang);
     var sa = Math.sin(ang);
@@ -452,13 +454,18 @@ WBF.Shade = (function () {
   }
 
   /* ---------- 유체 시트 ----------
-     원본을 각도 0·배율 1·참조 셀(6×11)로 한 번 구워 손으로 쓴 문자 시트와 같은 형식
-     { cols, rows, cc, cr, cells[{c, r, ch, tier}] }으로 돌려준다. 유체 입자(1칸 1입자)와
-     흩날림 문자, 기존 그리기 경로가 이 시트를 쓴다. 어떤 칸이 덮이는지는 글꼴과 무관하고,
-     문자는 기본 글꼴로 잰 덮임표로 고른다. */
+     원본을 각도 0·배율 1·지금 셀 피치(fw·fh, 월드 px)로 구워 손으로 쓴 문자 시트와 같은 형식
+     { cols, rows, cc, cr, cells[{c, r, ch, tier}], fw, fh, art }으로 돌려준다. 유체 입자(1칸 1입자)와
+     흩날림 문자, 기존 그리기 경로가 이 시트를 쓴다. 셀 피치마다 칸 배치가 달라지므로 피치별로
+     캐시하고, 렌더러는 피치가 바뀌면 유체를 다시 붙인다. 문자는 기본 글꼴로 잰 덮임표로 고른다. */
   var sheetCache = {};
-  function sheetFromArt(typeId) {
-    if (sheetCache[typeId]) return sheetCache[typeId];
+  var sheetTab = null;
+  var sheetChars = null;
+  function sheetFromArt(typeId, fw, fh) {
+    fw = fw || REF_W;
+    fh = fh || REF_H;
+    var key = typeId + '|' + fw.toFixed(4) + '|' + fh.toFixed(4);
+    if (sheetCache[key]) return sheetCache[key];
     var prep = prepare(typeId);
     if (!prep) return null;
     var chars = [' '];
@@ -474,8 +481,13 @@ WBF.Shade = (function () {
     for (var mk in mats) {
       if (mats[mk].ramp) for (i = 0; i < mats[mk].ramp.length; i++) addCh(mats[mk].ramp.charAt(i));
     }
-    var tab = glyphTable('700 20px "JetBrains Mono","Courier New",monospace', 12, 22, gidx);
-    var bk = bake(typeId, 0, { fw: REF_W, fh: REF_H, sig: [255, 255, 255], tab: tab, sheet: null });
+    /* 덮임표는 문자 집합이 같으면 한 번만 만든다(모든 원본의 램프 문자가 들어간 뒤 고정) */
+    if (!sheetTab || sheetChars !== chars.join('')) {
+      sheetTab = glyphTable('700 20px "JetBrains Mono","Courier New",monospace', 12, 22, gidx);
+      sheetChars = chars.join('');
+    }
+    var tab = sheetTab;
+    var bk = bake(typeId, 0, { fw: fw, fh: fh, sig: [255, 255, 255], tab: tab, sheet: null });
     var minC = 0, maxC = 0, minR = 0, maxR = 0;
     for (i = 0; i < bk.n; i++) {
       if (bk.dc[i] < minC) minC = bk.dc[i];
@@ -492,8 +504,9 @@ WBF.Shade = (function () {
         tier: bk.prio[i] >= P_OUTER ? 3 : 2
       });
     }
-    var sh = { id: typeId, cols: maxC - minC + 1, rows: maxR - minR + 1, cc: -minC, cr: -minR, cells: cells };
-    sheetCache[typeId] = sh;
+    var sh = { id: typeId, cols: maxC - minC + 1, rows: maxR - minR + 1, cc: -minC, cr: -minR, cells: cells,
+      fw: fw, fh: fh, art: true };
+    sheetCache[key] = sh;
     return sh;
   }
 
