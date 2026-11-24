@@ -1192,6 +1192,73 @@ WBF.Ascii = (function () {
     }
   };
 
+  /* 선의 진행 각도(라디안, 화면 y 아래)에 맞는 선 문자 — 일섬 자국·칼끝 호가 같은 규칙을 쓴다 */
+  function lineChar(a) {
+    var t = a % Math.PI;
+    if (t < 0) t += Math.PI;
+    if (t < 0.3927 || t >= 2.7489) return '-';
+    if (t < 1.1781) return '\\';
+    if (t < 1.9635) return '|';
+    return '/';
+  }
+
+  /* BLADE 일섬 자국: 처음 20%는 밝은 한 줄(흰 심 + 시그니처 색), 그 뒤 두 줄로 갈라져
+     법선 방향으로 벌어지고, 칸이 해시 순서대로 띄엄띄엄 빠지며 어두워진다. */
+  Renderer.prototype.bladeCut = function (f) {
+    var x1 = f.cutX1, y1 = f.cutY1, x2 = f.cutX2, y2 = f.cutY2;
+    var dx = x2 - x1, dy = y2 - y1;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) return;
+    var cp = 1 - f.cutT / (f.cutMax || 0.6);
+    var ch = lineChar(f.cutA);
+    var step = Math.max(4, this.fw * 0.9);
+    var ux = dx / len, uy = dy / len;
+    var nx = -uy, ny = ux;
+    var k, x, y, n;
+    if (cp < 0.2) {
+      /* 밝은 한 줄은 반 칸 간격으로 찍어 완만한 기울기에서도 계단 사이가 비지 않게 한다.
+         처음 절반은 전부 흰색, 그 뒤 흰 심이 띄엄띄엄 남는 시그니처 색 */
+      var fine = Math.max(2, this.fw * 0.5);
+      n = Math.ceil(len / fine);
+      for (k = 0; k <= n; k++) {
+        x = x1 + ux * k * fine;
+        y = y1 + uy * k * fine;
+        this.pushDeco(ch, x, y, (cp < 0.1 || k % 4 === 0) ? '#ffffff' : f.color, 0, P_ENERGY);
+      }
+      return;
+    }
+    n = Math.ceil(len / step);
+    var q = (cp - 0.2) / 0.8;
+    var off = 2 + q * 14;
+    var keep = 1 - q;
+    var dim = 0.3 + 0.6 * keep;
+    for (k = 0; k <= n; k++) {
+      if (((k * 37 + 11) % 23) / 23 > keep) continue;
+      x = x1 + ux * k * step;
+      y = y1 + uy * k * step;
+      this.pushDecoDim(ch, x + nx * off, y + ny * off, f.color, dim, P_FILL);
+      this.pushDecoDim(ch, x - nx * off, y - ny * off, f.color, dim, P_FILL);
+    }
+  };
+
+  /* BLADE 돌진 중 칼끝 호 잔상: 칼끝 반지름에서 지나온 각도만큼 짧은 호를 어둡게 깐다(뒤로 갈수록 옅다).
+     평소 회전은 느려 호가 1칸도 안 되므로 돌진 때만 부른다. */
+  Renderer.prototype.bladeArc = function (f) {
+    var R = WBF.BLADE_REACH;
+    var r = R.tip * 0.94;
+    var span = 1.1;
+    var step = Math.max(4, this.fw * 0.9);
+    var n = Math.max(2, Math.ceil(span * r / step));
+    var a0 = f.shapeAngle || 0;
+    var px = f.body.position.x;
+    var py = f.body.position.y;
+    for (var j = 1; j <= n; j++) {
+      var aa = a0 - span * j / n;
+      this.pushDecoDim(lineChar(aa + Math.PI / 2), px + Math.cos(aa) * r, py + Math.sin(aa) * r,
+        f.color, 0.15 + 0.5 * (1 - j / n), P_FILL);
+    }
+  };
+
   /* ---------- 탄환 ---------- */
 
   Renderer.prototype.bullets = function (g) {
@@ -1318,21 +1385,13 @@ WBF.Ascii = (function () {
         if (k % 11 === 5 && bl > 0.25) this.pushDeco('X', bx0, by0, '#ffdf70', 0, P_ENERGY);
       }
     }
-    /* 고유 스킬: BLADE 360도 회전 검기 링 · JUGGERNAUT 황금 충격파 링 */
-    var slashChars = ['|', '/', '-', '\\', '*'];
+    /* 고유 스킬: BLADE 일섬 베기 자국 · JUGGERNAUT 황금 충격파 링 */
     for (i = 0; i < g.fighters.length; i++) {
       var sf = g.fighters[i];
       if (!sf.alive) continue;
-      if (sf.slashT > 0) {
-        var skp = 1 - sf.slashT / 0.55;
-        var srad = (sf.radius || 36) * (1.1 + skp * 1.2);
-        for (k = 0; k < 16; k++) {
-          var ska = (k / 16) * Math.PI * 2 + (sf.slashAng || 0) + skp * 4.2;
-          this.pushDeco(slashChars[k % slashChars.length],
-            sf.body.position.x + Math.cos(ska) * srad,
-            sf.body.position.y + Math.sin(ska) * srad,
-            k % 3 === 0 ? '#ffffff' : sf.color, 0, P_ENERGY);
-        }
+      if (sf.typeId === 'blade') {
+        if (sf.cutT > 0) this.bladeCut(sf);
+        if (sf.dashT > 0) this.bladeArc(sf);
       }
       if (sf.slamT > 0) {
         var gkp = 1 - sf.slamT / 0.45;

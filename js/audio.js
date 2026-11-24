@@ -453,13 +453,17 @@ WBF.Audio = (function () {
       metal(note([4, 7, 9][(Math.random() * 3) | 0], 3), 0.22, 0.06, 0.015);
     },
 
-    /* BLADE 고유 스킬 SPIN_SLASH: 회전 바람 + 음계를 타고 오르는 금속 울림 3번 */
-    spin: function () {
+    /* BLADE 고유 스킬 FLASH_CUT(일섬): 공기를 가르는 아주 짧은 고역 '슉'(위에서 아래로 닫히는 필터)
+       + 날카로운 금속 '칭' 두 겹(E5·A5) → 0.16초 정적 뒤 베기 자국이 갈라지는 건조한 크랙과
+       낮게 꺼지는 사인. 회전 바람 없이 한 번에 끊어 친다. */
+    flashCut: function () {
       if (!ok()) return;
-      noise(0.5, 0.11, 900, 6500, 'bandpass', 0, master, 2.5);
-      var steps = [0, 2, 4];
-      for (var i = 0; i < steps.length; i++) metal(note(steps[i] + 4, 3), 0.35, 0.07, i * 0.07);
-      tone('sine', note(0, 1), note(0, 0), 0.4, 0.14, 0, master, { bus: room, amt: 0.5 });
+      noise(0.09, 0.14, 11000, 2500, 'highpass', 0, master, 0.8);
+      metal(note(4, 3), 0.55, 0.09, 0.012);
+      metal(note(0, 4), 0.4, 0.05, 0.03);
+      noise(0.05, 0.11, 3800, 1400, 'bandpass', 0.16, master, 3);
+      tone('square', note(0, 2), note(0, 2) * 0.97, 0.03, 0.04, 0.16, crush);
+      tone('sine', note(0, 1), note(0, 0), 0.35, 0.12, 0.16, master, { bus: room, amt: 0.4 });
     },
 
     /* RAILGUN 일반 사격: 디지털 전격(계단 왜곡된 하강 사각파) + 고역 크랙 + 짧은 저음 반동 */

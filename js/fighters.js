@@ -10,7 +10,7 @@ WBF.world = { W: 960, H: 540 };
    지름과 비슷해지도록 맞춘 값이다(실루엣과 판정 원의 어긋남 최소화). */
 /* skillName = 게이지 완충 후 적 충돌 시 발동하는 고유 스킬. skillColor = 게이지 바 색(체력과 구분). */
 WBF.TYPES = [
-  { id: 'blade',      abbr: 'BLD', tag: 'BLADE',      name: '검사',     color: '#00f0ff', hp: 200, radius: 36, cruise: 10.0, skillName: 'SPIN_SLASH',   skillColor: '#8ff6ff' },
+  { id: 'blade',      abbr: 'BLD', tag: 'BLADE',      name: '검사',     color: '#00f0ff', hp: 200, radius: 36, cruise: 10.0, skillName: 'FLASH_CUT',    skillColor: '#8ff6ff' },
   { id: 'railgun',    abbr: 'RLG', tag: 'RAILGUN',    name: '스나이퍼', color: '#ff1e56', hp: 170, radius: 33, cruise: 11.2, skillName: 'PIERCE_LASER', skillColor: '#ff9aae' },
   { id: 'juggernaut', abbr: 'JUG', tag: 'JUGGERNAUT', name: '광전사',   color: '#ffaa00', hp: 310, radius: 46, cruise: 7.8,  skillName: 'GROUND_SLAM',  skillColor: '#ffd166' },
   { id: 'splitter',   abbr: 'SPL', tag: 'SPLITTER',   name: '분열술사', color: '#b829ff', hp: 230, radius: 38, cruise: 11.8, skillName: 'FRAG_BURST',   skillColor: '#dda6ff' }
@@ -33,6 +33,10 @@ WBF.TYPES = [
    - rim: [높이, 가장자리에서 거리, 폭] — 테두리 바로 안쪽이 살짝 솟는다
    - 내부 칸 채움: grain(결 각도, 라디안 — 회전에 맞춰 = \ | / 중 하나) 또는 ramp(어두움→밝음 문자열)
    어두운 띠도 검은 배경 위에서 구멍처럼 보이지 않게 너무 어둡게 두지 않는다 */
+/* BLADE 평소 무기 판정 = 대검 칼날 구간(아래 WBF.ART.blade의 steel 부위와 같은 월드 px).
+   회전 중심에서 shapeAngle 방향으로 root~tip, 반폭 half. 몸 판정 원(반지름 36) 밖으로 나온 칼날만 무기로 쓴다. */
+WBF.BLADE_REACH = { root: 30, tip: 78, half: 11 };
+
 WBF.ART = {
   blade: {
     materials: {

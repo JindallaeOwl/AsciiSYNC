@@ -51,11 +51,11 @@ WBF.Tutorial = (function () {
       ids: ['juggernaut', 'blade'],
       ko: {
         start: '시연 경기를 시작합니다. 저거넛 대 블레이드.',
-        note: '저거넛은 벽에 튕길 때마다 조금씩 커집니다. 블레이드의 스킬은 주변을 한 바퀴 베는 회전 베기입니다.'
+        note: '저거넛은 벽에 튕길 때마다 조금씩 커집니다. 블레이드의 스킬은 상대를 꿰뚫고 지나가는 일섬입니다.'
       },
       en: {
         start: 'Starting the demo match: JUGGERNAUT vs BLADE.',
-        note: 'JUGGERNAUT grows a little with every wall bounce. BLADE\'s skill is a full-circle spin slash.'
+        note: 'JUGGERNAUT grows a little with every wall bounce. BLADE\'s skill is a flash cut that passes straight through its target.'
       }
     }
   ];

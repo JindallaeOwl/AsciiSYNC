@@ -330,7 +330,6 @@ window.WBF = window.WBF || {};
       flashUntil: 0,
       roll: Math.random() * 10,
       squash: 0,
-      bladeAngle: Math.random() * TAU,
       bladeHitAt: {},
       aim: 0,
       aimAngle: 0,
@@ -355,8 +354,11 @@ window.WBF = window.WBF || {};
       chargeMul: type.id === 'railgun' ? 0.62 : 1,
       skillAimAngle: 0,
       skillTargetId: 0,
-      slashT: 0,
-      slashAng: 0,
+      /* BLADE 일섬 베기 자국(남은 시간·전체 시간·각도·시작점·끝점) */
+      cutT: 0,
+      cutMax: 0,
+      cutA: 0,
+      cutX1: 0, cutY1: 0, cutX2: 0, cutY2: 0,
       slamT: 0,
       lastGaugeWall: 0,
       dashT: 0,
@@ -541,7 +543,7 @@ window.WBF = window.WBF || {};
       var f = this.fighters[i];
       if (!f.alive) continue;
       f.skillCd = Math.max(0, (f.skillCd || 0) - dt);
-      f.slashT = Math.max(0, (f.slashT || 0) - dt);
+      f.cutT = Math.max(0, (f.cutT || 0) - dt);
       f.slamT = Math.max(0, (f.slamT || 0) - dt);
       f.dashT = Math.max(0, (f.dashT || 0) - dt);
       f.boostT = Math.max(0, (f.boostT || 0) - dt);
@@ -740,47 +742,55 @@ window.WBF = window.WBF || {};
     }
   };
 
+  /* BLADE 평소 무기 = 대검 실루엣 자체. 칼날 구간(WBF.BLADE_REACH, shapeAngle 방향)에 닿은 적은
+     베이고(대상마다 0.2초 간격), 칼날에 맞은 적 탄은 사라진다. 따로 도는 판정점·잔열 선은 없다. */
   Game.prototype.updateBlade = function (f, dt) {
-    f.bladeAngle += dt * (13 + 7 * f.spdMul);
-    var orbit = f.radius + 16 + (f.dashT > 0 ? 22 : 0);
-    var now = performance.now();
+    var R = WBF.BLADE_REACH;
+    var a = f.shapeAngle || 0;
+    var ca = Math.cos(a);
+    var sa = Math.sin(a);
     var px = f.body.position.x;
     var py = f.body.position.y;
+    var x1 = px + ca * R.root;
+    var y1 = py + sa * R.root;
+    var len = R.tip - R.root;
 
-    for (var k = 0; k < 2; k++) {
-      var a = f.bladeAngle + k * Math.PI;
-      var bx = px + Math.cos(a) * orbit;
-      var by = py + Math.sin(a) * orbit;
-      this.effects.afterglow(px, py, bx, by, f.color, 0.16);
+    for (var i = 0; i < this.fighters.length; i++) {
+      var o = this.fighters[i];
+      if (!o.alive || o === f || o.teamId === f.teamId) continue;
+      /* 칼날 선분 위에서 상대 중심과 가장 가까운 점 */
+      var ox = o.body.position.x;
+      var oy = o.body.position.y;
+      var t = (ox - x1) * ca + (oy - y1) * sa;
+      if (t < 0) t = 0;
+      else if (t > len) t = len;
+      var hx = x1 + ca * t;
+      var hy = y1 + sa * t;
+      var dx = ox - hx;
+      var dy = oy - hy;
+      if (dx * dx + dy * dy > (o.radius + R.half) * (o.radius + R.half)) continue;
+      var last = f.bladeHitAt[o.id];
+      if (last !== undefined && this.time - last < 0.2) continue;
+      f.bladeHitAt[o.id] = this.time;
+      var ang = Math.atan2(oy - py, ox - px);
+      Matter.Body.setVelocity(o.body, {
+        x: o.body.velocity.x + Math.cos(ang) * 1.7,
+        y: o.body.velocity.y + Math.sin(ang) * 1.7
+      });
+      /* 칼날 하나가 천천히 도는 만큼 맞히는 횟수가 예전(판정점 2개 고속 회전)보다 적어 한 번 피해를 12로 둔다 */
+      this.damage(o, o.typeId === 'blade' ? 6 : 12, f, hx, hy, f.color);
+      this.effects.spark(hx, hy, 7, f.color, 6);
+      WBF.Audio.blade();
+    }
 
-      for (var i = 0; i < this.fighters.length; i++) {
-        var o = this.fighters[i];
-        if (!o.alive || o === f || o.teamId === f.teamId) continue;
-        var dx = o.body.position.x - bx;
-        var dy = o.body.position.y - by;
-        if (Math.hypot(dx, dy) > o.radius + 10) continue;
-        var last = f.bladeHitAt[o.id] || 0;
-        if (now - last < 200) continue;
-        f.bladeHitAt[o.id] = now;
-        var ang = Math.atan2(dy, dx);
-        Matter.Body.setVelocity(o.body, {
-          x: o.body.velocity.x + Math.cos(ang) * 1.7,
-          y: o.body.velocity.y + Math.sin(ang) * 1.7
-        });
-        this.damage(o, o.typeId === 'blade' ? 4 : 8, f, bx, by, f.color);
-        this.effects.spark(bx, by, 7, f.color, 6);
+    for (var j = 0; j < this.bullets.length; j++) {
+      var b = this.bullets[j];
+      if (!b.alive || b.teamId === f.teamId) continue;
+      if (segDist(b.x, b.y, x1, y1, px + ca * R.tip, py + sa * R.tip) < R.half + 3) {
+        b.alive = false;
+        this.effects.spark(b.x, b.y, 11, f.color, 7);
+        this.effects.wave(b.x, b.y, f.color, 60, 0.3);
         WBF.Audio.blade();
-      }
-
-      for (var j = 0; j < this.bullets.length; j++) {
-        var b = this.bullets[j];
-        if (!b.alive || b.teamId === f.teamId) continue;
-        if (Math.hypot(b.x - bx, b.y - by) < 14) {
-          b.alive = false;
-          this.effects.spark(b.x, b.y, 11, f.color, 7);
-          this.effects.wave(b.x, b.y, f.color, 60, 0.3);
-          WBF.Audio.blade();
-        }
       }
     }
   };
@@ -1146,32 +1156,74 @@ window.WBF = window.WBF || {};
     this.log(f.label + ' >> SKILL ' + f.skillName, 'sys');
   };
 
-  /* ① BLADE — 360도 회전 검기 난무: 주변 광역 피해 + 충돌 상대에게 큰 단일 피해 */
+  /* ① BLADE — 일섬(FLASH_CUT): 부딪힌 상대를 꿰뚫고 그 방향으로 순간 돌진한다(최대 CUT_LEN,
+     벽 안쪽에서 멈춘다). 지나간 직선 위의 적은 모두 베이고 베인 쪽 옆으로 밀려난다.
+     직선에는 베기 자국(cutT 동안)이 남았다가 두 줄로 갈라지며 사라진다(js/ascii.js). */
+  var CUT_LEN = 260;
+  var CUT_T = 0.6;
   Game.prototype.skillCastBlade = function (f, target, mx, my) {
-    var px = f.body.position.x;
-    var py = f.body.position.y;
-    var R = (f.radius || 36) * 2.3;
-    f.slashT = 0.55;
-    f.slashAng = f.bladeAngle || 0;
+    var p = f.body.position;
+    var sx = p.x;
+    var sy = p.y;
+    var dirA = (target && target.alive)
+      ? Math.atan2(target.body.position.y - sy, target.body.position.x - sx)
+      : (f.heading || 0);
+    var ca = Math.cos(dirA);
+    var sa = Math.sin(dirA);
+
+    /* 경기장 안(벽에서 반지름만큼 안쪽)을 벗어나지 않는 만큼만 나아간다 */
+    var m = this.inset + (f.radius || 36) + 4;
+    var tMax = CUT_LEN;
+    if (ca > 1e-6) tMax = Math.min(tMax, (W - m - sx) / ca);
+    else if (ca < -1e-6) tMax = Math.min(tMax, (m - sx) / ca);
+    if (sa > 1e-6) tMax = Math.min(tMax, (H - m - sy) / sa);
+    else if (sa < -1e-6) tMax = Math.min(tMax, (m - sy) / sa);
+    if (!(tMax > 0)) tMax = 0;
+    var ex = sx + ca * tMax;
+    var ey = sy + sa * tMax;
+
     for (var i = 0; i < this.fighters.length; i++) {
       var o = this.fighters[i];
       if (!o.alive || o === f || o.teamId === f.teamId) continue;
-      var d = Math.hypot(o.body.position.x - px, o.body.position.y - py);
-      if (d > R + o.radius) continue;
-      var big = (o === target) || d < (f.radius || 36) * 1.3;
-      this.damage(o, big ? 30 : 16, f, o.body.position.x, o.body.position.y, f.color);
-      var ang = Math.atan2(o.body.position.y - py, o.body.position.x - px);
+      var ox = o.body.position.x;
+      var oy = o.body.position.y;
+      if (segDist(ox, oy, sx, sy, ex, ey) > o.radius + 16) continue;
+      this.damage(o, o === target ? 34 : 26, f, ox, oy, f.color);
+      /* 직선의 법선 중 상대가 있는 쪽으로 밀어낸다(베인 쪽으로 튕겨 나간다) */
+      var side = ((ox - sx) * -sa + (oy - sy) * ca) >= 0 ? 1 : -1;
       Matter.Body.setVelocity(o.body, {
-        x: o.body.velocity.x + Math.cos(ang) * (big ? 4.2 : 2.2),
-        y: o.body.velocity.y + Math.sin(ang) * (big ? 4.2 : 2.2)
+        x: o.body.velocity.x - sa * side * 4.2 + ca * 1.2,
+        y: o.body.velocity.y + ca * side * 4.2 + sa * 1.2
       });
+      this.effects.spark(ox, oy, 12, f.color, 8);
     }
-    this.effects.wave(px, py, f.color, R + 40, 0.45);
-    this.effects.wave(px, py, '#ffdf70', R * 0.7, 0.3);
+
+    /* 순간 이동 후 같은 방향으로 계속 달린다. 칼끝을 베어 나간 방향으로 돌려 두고,
+       잠깐 속도 목표를 올린다(돌진 회전 dashT는 쓰지 않아 칼이 그 방향을 유지한다). */
+    Matter.Body.setPosition(f.body, { x: ex, y: ey });
+    var sp0 = (f.cruise || 10) * 1.8;
+    Matter.Body.setVelocity(f.body, { x: ca * sp0, y: sa * sp0 });
+    f.heading = dirA;
+    f.shapeAngle = dirA;
+    f.recoilT = 0.25;
+    f.recoilBoost = 1.8;
+
+    f.cutT = CUT_T;
+    f.cutMax = CUT_T;
+    f.cutA = dirA;
+    f.cutX1 = sx; f.cutY1 = sy; f.cutX2 = ex; f.cutY2 = ey;
+    /* 지나간 길 위에 실루엣 잔상 3개(bladeTrail이 다음 몇 프레임 동안 그린다) — 스킬 때만 만든다 */
+    f.trail = [];
+    for (var g = 1; g <= 3; g++) {
+      var k = g / 4;
+      f.trail.push({ x: sx + (ex - sx) * k, y: sy + (ey - sy) * k, a: dirA });
+    }
+
     this.effects.flash(mx, my, '#ffffff');
-    this.effects.text(px, py - (f.radius || 36) - 30, 'SPIN_SLASH', f.skillColor, 12);
-    WBF.Audio.spin();
-    this.addShake(2.5);
+    this.effects.wave(ex, ey, f.color, 70, 0.3);
+    this.effects.text(ex, ey - (f.radius || 36) - 30, 'FLASH_CUT', f.skillColor, 12);
+    WBF.Audio.flashCut();
+    this.addShake(4);
   };
 
   /* ② RAILGUN — 최근접 적을 2초 겨눈 뒤 관통 레이저 + 큰 반동 */
